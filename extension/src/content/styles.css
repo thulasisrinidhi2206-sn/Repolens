@@ -1,0 +1,23 @@
+/**
+ * RepoLens Content Script Styles (injected on GitHub pages)
+ */
+
+.repolens-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: #0d1117;
+  border: 1px solid #30363d;
+  color: #58a6ff;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.repolens-badge:hover {
+  background-color: #161b22;
+  border-color: #58a6ff;
+}

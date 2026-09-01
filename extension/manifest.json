@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "RepoLens - GitHub Visual Preview & Project Evaluation",
+  "version": "0.1.0",
+  "description": "Visual previews and project evaluation directly inside GitHub repositories.",
+  "action": {
+    "default_popup": "src/popup/popup.html"
+  },
+  "background": {
+    "service_worker": "dist/background/index.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://github.com/*/*"
+      ],
+      "js": [
+        "dist/content/index.js"
+      ],
+      "css": [
+        "src/content/styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://github.com/*",
+    "http://localhost:3001/*"
+  ]
+}

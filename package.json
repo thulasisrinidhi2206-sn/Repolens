@@ -1,0 +1,28 @@
+{
+  "name": "repolens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RepoLens - GitHub Visual Preview and Project Evaluation Platform",
+  "workspaces": [
+    "backend",
+    "extension",
+    "shared"
+  ],
+  "scripts": {
+    "build": "npm run build:shared && npm run build:backend && npm run build:extension",
+    "build:shared": "npm run build --workspace=@repolens/shared",
+    "build:backend": "npm run build --workspace=@repolens/backend",
+    "build:extension": "npm run build --workspace=@repolens/extension",
+    "dev:backend": "npm run dev --workspace=@repolens/backend",
+    "start:backend": "npm run start --workspace=@repolens/backend"
+  },
+  "keywords": [
+    "github",
+    "preview",
+    "evaluation",
+    "chrome-extension",
+    "developer-tools"
+  ],
+  "author": "",
+  "license": "MIT"
+}
