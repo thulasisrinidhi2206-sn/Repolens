@@ -1,18 +1,22 @@
 /**
- * RepoLens Background Service Worker (Manifest V3)
+ * RepoLens - Background Service Worker (Manifest V3)
  */
 
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('[RepoLens] Extension installed successfully.');
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'install') {
+    console.log('[RepoLens Background] Extension freshly installed.');
+  } else if (details.reason === 'update') {
+    console.log('[RepoLens Background] Extension updated to version:', chrome.runtime.getManifest().version);
+  }
 });
 
-// Listener for messages from content scripts or popup
+// Top-level message passing listener
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  console.log('[RepoLens Background] Message received:', message);
-
-  if (message.type === 'PING') {
+  if (message?.type === 'PING') {
     sendResponse({ status: 'ok', timestamp: new Date().toISOString() });
+    return false;
   }
 
-  return true;
+  // Future message handlers (for backend coordination, storage, etc.)
+  return false;
 });

@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch"
+    "build": "tsc --noEmit && node build.js",
+    "build:bundle": "node build.js",
+    "dev": "node build.js --watch",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@repolens/shared": "*"

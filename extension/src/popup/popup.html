@@ -13,33 +13,36 @@
         <span class="logo-icon">🔍</span>
         <h1>RepoLens</h1>
       </div>
-      <span class="badge">v0.1.0</span>
+      <span class="version-badge">v0.1.0</span>
     </header>
 
     <main class="content">
-      <div class="status-card">
-        <div class="status-indicator online"></div>
-        <div class="status-text">
-          <p class="status-label">Backend Status</p>
-          <p id="backend-status" class="status-value">Checking connection...</p>
+      <div class="card status-card">
+        <div class="status-header">
+          <span class="status-indicator active"></span>
+          <span class="status-title">Extension Status</span>
+        </div>
+        <p class="status-sub">Active & Ready</p>
+      </div>
+
+      <div class="card repo-card">
+        <span class="card-label">Active Tab</span>
+        <div id="repo-detected-info" class="repo-info">
+          <p id="repo-name" class="repo-name">Scanning current tab...</p>
         </div>
       </div>
 
-      <div class="info-card">
+      <div class="card info-card">
         <p class="info-text">
-          Navigate to any GitHub repository to view live previews and project evaluations.
+          Navigate to any GitHub repository page to see the <strong>"Preview Project"</strong> button directly in the repo header.
         </p>
       </div>
-
-      <button id="check-status-btn" class="primary-button">
-        Check Backend Connection
-      </button>
     </main>
 
     <footer class="footer">
-      <span>RepoLens Platform</span>
+      <span>GitHub Visual Preview & Project Evaluation</span>
     </footer>
   </div>
-  <script src="../../dist/popup/popup.js"></script>
+  <script src="../../dist/popup.bundle.js"></script>
 </body>
 </html>

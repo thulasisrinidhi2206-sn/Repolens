@@ -1,31 +1,39 @@
 /**
- * RepoLens Popup Script
+ * RepoLens - Extension Action Popup Script
  */
 
-const statusEl = document.getElementById('backend-status') as HTMLParagraphElement;
-const checkBtn = document.getElementById('check-status-btn') as HTMLButtonElement;
+import { parseGitHubRepoUrl } from '../content/detector';
 
-const BACKEND_URL = 'http://localhost:3001/api/health';
+const repoNameEl = document.getElementById('repo-name') as HTMLParagraphElement;
 
-async function checkBackendHealth(): Promise<void> {
-  if (!statusEl) return;
-  statusEl.textContent = 'Connecting...';
+async function checkActiveTab(): Promise<void> {
+  if (!repoNameEl) return;
 
   try {
-    const res = await fetch(BACKEND_URL);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    statusEl.textContent = `Connected (${data.data?.status || 'OK'})`;
-  } catch (_err) {
-    statusEl.textContent = 'Offline (Backend not reachable)';
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!activeTab || !activeTab.url) {
+      repoNameEl.textContent = 'No active tab detected';
+      return;
+    }
+
+    const repoInfo = parseGitHubRepoUrl(activeTab.url);
+
+    if (repoInfo) {
+      repoNameEl.textContent = `📦 ${repoInfo.fullRepo}`;
+      repoNameEl.style.color = '#58a6ff';
+    } else if (activeTab.url.includes('github.com')) {
+      repoNameEl.textContent = 'GitHub page (non-repository)';
+      repoNameEl.style.color = '#d29922';
+    } else {
+      repoNameEl.textContent = 'Not on GitHub';
+      repoNameEl.style.color = '#8b949e';
+    }
+  } catch (err) {
+    console.error('[RepoLens Popup] Error checking active tab:', err);
+    repoNameEl.textContent = 'Ready';
   }
 }
 
-if (checkBtn) {
-  checkBtn.addEventListener('click', () => {
-    checkBackendHealth();
-  });
-}
-
-// Initial health check on popup load
-checkBackendHealth();
+// Initial active tab inspection
+checkActiveTab();

@@ -1,23 +1,246 @@
 /**
- * RepoLens Content Script Styles (injected on GitHub pages)
+ * RepoLens Extension - GitHub Injected Styles
  */
 
-.repolens-badge {
+/* ==========================================================================
+   Button Styles
+   ========================================================================== */
+
+.repolens-btn-wrapper {
+  display: inline-flex;
+  align-items: center;
+  list-style: none;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.repolens-preview-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  line-height: 20px !important;
+  padding: 3px 10px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  text-decoration: none !important;
+  border: 1px solid var(--button-default-borderColor-rest, #30363d) !important;
+  background-color: var(--button-default-bgColor-rest, #21262d) !important;
+  color: var(--button-default-fgColor-rest, #c9d1d9) !important;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease-in-out !important;
+}
+
+.repolens-preview-btn:hover {
+  background-color: var(--button-default-bgColor-hover, #30363d) !important;
+  border-color: var(--button-default-borderColor-hover, #8b949e) !important;
+  color: var(--fgColor-default, #f0f6fc) !important;
+}
+
+.repolens-preview-btn:active {
+  background-color: var(--button-default-bgColor-active, #282e33) !important;
+  transform: translateY(1px);
+}
+
+.repolens-btn-content {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  background-color: #0d1117;
-  border: 1px solid #30363d;
-  color: #58a6ff;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
 }
 
-.repolens-badge:hover {
+.repolens-btn-icon {
+  color: #2da44e; /* GitHub Green */
+  flex-shrink: 0;
+}
+
+.repolens-btn-text {
+  font-weight: 600;
+}
+
+.repolens-btn-badge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background-color: rgba(45, 164, 78, 0.15);
+  color: #3fb950;
+  border: 1px solid rgba(63, 185, 80, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ==========================================================================
+   Modal Overlay & Dialog Styles
+   ========================================================================== */
+
+body.repolens-modal-open {
+  overflow: hidden;
+}
+
+.repolens-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(1, 4, 9, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  animation: repolens-fade-in 0.2s ease-out forwards;
+}
+
+.repolens-modal-dialog {
+  width: 440px;
+  max-width: 90vw;
+  background-color: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  box-shadow: 0 16px 32px rgba(1, 4, 9, 0.85), 0 0 0 1px rgba(240, 246, 252, 0.1);
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  color: #e6edf3;
+  animation: repolens-scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.repolens-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #21262d;
   background-color: #161b22;
-  border-color: #58a6ff;
+}
+
+.repolens-modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.repolens-modal-logo {
+  font-size: 18px;
+}
+
+.repolens-modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.repolens-modal-close {
+  background: none;
+  border: none;
+  color: #8b949e;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.repolens-modal-close:hover {
+  color: #f0f6fc;
+  background-color: #21262d;
+}
+
+.repolens-modal-body {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+}
+
+.repolens-repo-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  align-self: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  color: #58a6ff;
+}
+
+.repolens-placeholder-card {
+  padding: 20px 16px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(22, 27, 34, 0.8) 0%, rgba(13, 17, 23, 0.8) 100%);
+  border: 1px dashed #30363d;
+}
+
+.repolens-placeholder-icon {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.repolens-placeholder-heading {
+  margin: 0 0 8px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #3fb950;
+}
+
+.repolens-placeholder-subtext {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #8b949e;
+}
+
+.repolens-modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #21262d;
+  background-color: #161b22;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.repolens-modal-btn-primary {
+  padding: 6px 16px;
+  background-color: #238636;
+  border: 1px solid rgba(240, 246, 252, 0.1);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.repolens-modal-btn-primary:hover {
+  background-color: #2ea043;
+}
+
+/* ==========================================================================
+   Animations
+   ========================================================================== */
+
+@keyframes repolens-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes repolens-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
