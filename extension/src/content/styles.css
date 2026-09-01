@@ -97,8 +97,8 @@ body.repolens-modal-open {
 }
 
 .repolens-modal-dialog {
-  width: 440px;
-  max-width: 90vw;
+  width: 480px;
+  max-width: 92vw;
   background-color: #0d1117;
   border: 1px solid #30363d;
   border-radius: 12px;
@@ -113,7 +113,7 @@ body.repolens-modal-open {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 14px 20px;
   border-bottom: 1px solid #21262d;
   background-color: #161b22;
 }
@@ -130,7 +130,7 @@ body.repolens-modal-open {
 
 .repolens-modal-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #ffffff;
 }
@@ -153,69 +153,211 @@ body.repolens-modal-open {
 }
 
 .repolens-modal-body {
-  padding: 24px 20px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  text-align: center;
 }
 
+/* Repo Pill */
 .repolens-repo-pill {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
-  align-self: center;
+  align-self: flex-start;
   padding: 4px 12px;
   border-radius: 20px;
   background-color: #161b22;
   border: 1px solid #30363d;
-  font-size: 13px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   color: #58a6ff;
 }
 
-.repolens-placeholder-card {
-  padding: 20px 16px;
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(22, 27, 34, 0.8) 0%, rgba(13, 17, 23, 0.8) 100%);
-  border: 1px dashed #30363d;
-}
-
-.repolens-placeholder-icon {
-  font-size: 32px;
-  margin-bottom: 10px;
-}
-
-.repolens-placeholder-heading {
-  margin: 0 0 8px 0;
-  font-size: 15px;
-  font-weight: 600;
+.repolens-repo-pill.success {
+  border-color: rgba(46, 160, 67, 0.4);
   color: #3fb950;
 }
 
-.repolens-placeholder-subtext {
+.repolens-repo-pill.error {
+  border-color: rgba(248, 81, 73, 0.4);
+  color: #f85149;
+}
+
+.repolens-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background-color: rgba(56, 139, 253, 0.15);
+  color: #58a6ff;
+  margin-left: 4px;
+}
+
+/* Loading Card */
+.repolens-loading-card {
+  padding: 28px 16px;
+  border-radius: 8px;
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.repolens-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(56, 139, 253, 0.2);
+  border-top-color: #58a6ff;
+  border-radius: 50%;
+  animation: repolens-spin 0.8s linear infinite;
+}
+
+.repolens-loading-heading {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.repolens-loading-subtext {
+  margin: 0;
+  font-size: 12px;
   color: #8b949e;
 }
 
+/* Success State Card */
+.repolens-success-card {
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.repolens-data-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.repolens-data-label {
+  color: #8b949e;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.repolens-data-value {
+  color: #e6edf3;
+  text-align: right;
+  word-break: break-word;
+}
+
+.repolens-data-value.highlighted {
+  color: #3fb950;
+  font-weight: 500;
+}
+
+.repolens-data-code {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  background-color: #0d1117;
+  border: 1px solid #30363d;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #58a6ff;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Info Callout */
+.repolens-info-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background-color: rgba(56, 139, 253, 0.08);
+  border: 1px solid rgba(56, 139, 253, 0.2);
+  border-radius: 6px;
+}
+
+.repolens-info-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.repolens-info-text {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #8b949e;
+}
+
+/* Error Card */
+.repolens-error-card {
+  padding: 24px 16px;
+  border-radius: 8px;
+  background-color: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.repolens-error-icon {
+  font-size: 28px;
+}
+
+.repolens-error-heading {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #f85149;
+}
+
+.repolens-error-message {
+  margin: 0;
+  font-size: 12px;
+  color: #c9d1d9;
+  line-height: 1.4;
+}
+
+/* Footer & Buttons */
 .repolens-modal-footer {
   padding: 12px 20px;
   border-top: 1px solid #21262d;
   background-color: #161b22;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.repolens-footer-tag {
+  font-size: 11px;
+  color: #8b949e;
+  font-family: ui-monospace, SFMono-Regular, monospace;
 }
 
 .repolens-modal-btn-primary {
-  padding: 6px 16px;
+  padding: 6px 14px;
   background-color: #238636;
   border: 1px solid rgba(240, 246, 252, 0.1);
   border-radius: 6px;
   color: #ffffff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.15s;
@@ -225,10 +367,24 @@ body.repolens-modal-open {
   background-color: #2ea043;
 }
 
-/* ==========================================================================
-   Animations
-   ========================================================================== */
+.repolens-modal-btn-secondary {
+  padding: 6px 14px;
+  background-color: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #c9d1d9;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
 
+.repolens-modal-btn-secondary:hover {
+  background-color: #30363d;
+  color: #f0f6fc;
+}
+
+/* Animations */
 @keyframes repolens-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -237,10 +393,14 @@ body.repolens-modal-open {
 @keyframes repolens-scale-in {
   from {
     opacity: 0;
-    transform: scale(0.94) translateY(-10px);
+    transform: scale(0.95) translateY(-8px);
   }
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
   }
+}
+
+@keyframes repolens-spin {
+  to { transform: rotate(360deg); }
 }

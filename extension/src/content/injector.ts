@@ -1,51 +1,78 @@
 /**
- * RepoLens - GitHub DOM Injector Module
+ * RepoLens - GitHub DOM Injector & Flow Coordinator
  */
 
+import { apiClient } from '../services/api';
 import { RepoInfo } from './types';
 import { createPreviewButton } from './ui/button';
-import { showComingSoonModal } from './ui/modal';
+import {
+  showAnalysisModal,
+  updateModalToSuccess,
+  updateModalToError
+} from './ui/modal';
 
 const INJECTION_CONTAINER_ATTR = 'data-repolens-container';
 const BUTTON_ID = 'repolens-preview-btn';
 
 /**
  * Potential target selectors for button injection on GitHub repository pages
- * Ordered by preference
  */
 const TARGET_SELECTORS = [
-  // 1. Primary repository header action list (next to Watch / Fork / Star)
   '#repository-container-header ul.pagehead-actions',
   '#repository-container-header ul',
   'ul.pagehead-actions',
   '[data-turbo-replace="repository-container-header"] ul',
-
-  // 2. Repository header action flex container
   '#repository-container-header .d-flex.gap-2',
   '#repository-container-header .d-flex.flex-wrap',
-
-  // 3. File navigation action bar (near the green "Code" button on repo home)
   '.file-navigation',
   '#repo-content-pjax-container .file-navigation'
 ];
 
 /**
+ * Handles the complete Preview / Analyze user click flow
+ */
+export async function handlePreviewProjectClick(repo: RepoInfo): Promise<void> {
+  console.log(`[RepoLens] Initiating analysis for ${repo.fullRepo} (${repo.url})`);
+
+  // 1. Show modal in loading state
+  showAnalysisModal(repo);
+
+  // 2. Define reusable execution logic for retry support
+  const executeAnalysis = async () => {
+    try {
+      const response = await apiClient.analyzeRepository(repo.url);
+
+      if (response.success && response.data) {
+        console.log('[RepoLens] Analysis response received:', response.data);
+        updateModalToSuccess(repo, response.data);
+      } else {
+        throw new Error(response.error || 'Failed to analyze repository');
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error during analysis';
+      console.error('[RepoLens] Analysis error:', errorMessage);
+      updateModalToError(repo, errorMessage, () => {
+        executeAnalysis();
+      });
+    }
+  };
+
+  // 3. Kick off the request
+  await executeAnalysis();
+}
+
+/**
  * Injects the "Preview Project" button into the GitHub DOM
  */
 export function injectPreviewButton(repo: RepoInfo): boolean {
-  // 1. Check if button is already injected and attached
   const existingBtn = document.getElementById(BUTTON_ID);
   if (existingBtn) {
-    // Already in place
     return true;
   }
 
-  // 2. Remove any orphaned containers if present
   removeInjectedElements();
 
-  // 3. Find the best injection target
   let targetContainer: Element | null = null;
-
   for (const selector of TARGET_SELECTORS) {
     const el = document.querySelector(selector);
     if (el) {
@@ -54,30 +81,24 @@ export function injectPreviewButton(repo: RepoInfo): boolean {
     }
   }
 
-  // 4. Create the button element
   const buttonElement = createPreviewButton(repo, {
     onPreviewClick: (targetRepo) => {
-      console.log(`[RepoLens] Preview button clicked for: ${targetRepo.fullRepo}`);
-      showComingSoonModal(targetRepo);
+      handlePreviewProjectClick(targetRepo);
     }
   });
 
-  // 5. Append or prepend depending on container type
   if (targetContainer) {
     requestAnimationFrame(() => {
       if (targetContainer.tagName.toLowerCase() === 'ul') {
-        // Append as list item in pagehead actions
         targetContainer.appendChild(buttonElement);
       } else {
-        // Prepend or insert before first action child
         targetContainer.insertBefore(buttonElement, targetContainer.firstChild);
       }
-      console.log(`[RepoLens] Injected Preview button into:`, targetContainer);
+      console.log('[RepoLens] Injected Preview button into:', targetContainer);
     });
     return true;
   }
 
-  // 6. Fallback: Inject as a floating bottom-right action badge
   injectFloatingFallback(repo, buttonElement);
   return true;
 }

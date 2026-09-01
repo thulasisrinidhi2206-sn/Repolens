@@ -61,6 +61,25 @@ export interface ProjectEvaluation {
 }
 
 /**
+ * Request payload for POST /api/analyze
+ */
+export interface AnalyzeRepoRequest {
+  repositoryUrl: string;
+}
+
+/**
+ * Result payload returned from POST /api/analyze
+ */
+export interface AnalyzeRepoData {
+  id: string;
+  repo: RepoIdentifier;
+  status: EvaluationStatus;
+  repositoryUrl: string;
+  receivedAt: string;
+  message: string;
+}
+
+/**
  * Standard API response wrapper
  */
 export interface ApiResponse<T = unknown> {

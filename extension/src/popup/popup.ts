@@ -3,8 +3,12 @@
  */
 
 import { parseGitHubRepoUrl } from '../content/detector';
+import { apiClient } from '../services/api';
+import { CONFIG } from '../config';
 
 const repoNameEl = document.getElementById('repo-name') as HTMLParagraphElement;
+const backendStatusEl = document.getElementById('backend-status') as HTMLParagraphElement;
+const statusIndicatorEl = document.getElementById('status-indicator') as HTMLSpanElement;
 
 async function checkActiveTab(): Promise<void> {
   if (!repoNameEl) return;
@@ -35,5 +39,26 @@ async function checkActiveTab(): Promise<void> {
   }
 }
 
-// Initial active tab inspection
+async function checkBackendHealth(): Promise<void> {
+  if (!backendStatusEl) return;
+
+  try {
+    backendStatusEl.textContent = `Connecting to ${CONFIG.API_BASE_URL}...`;
+    const health = await apiClient.checkHealth();
+    backendStatusEl.textContent = `Connected (${health.status})`;
+    backendStatusEl.style.color = '#3fb950';
+    if (statusIndicatorEl) {
+      statusIndicatorEl.className = 'status-indicator active';
+    }
+  } catch (_err) {
+    backendStatusEl.textContent = `Offline (${CONFIG.API_BASE_URL})`;
+    backendStatusEl.style.color = '#f85149';
+    if (statusIndicatorEl) {
+      statusIndicatorEl.className = 'status-indicator offline';
+    }
+  }
+}
+
+// Initial checks
 checkActiveTab();
+checkBackendHealth();
