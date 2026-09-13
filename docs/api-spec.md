@@ -32,7 +32,7 @@ Base URL: `http://localhost:3001`
 
 ### 2.1 Repository Analysis Request
 - **Endpoint**: `POST /api/analyze`
-- **Description**: Validates a public GitHub repository URL and initializes an analysis session.
+- **Description**: Validates a public GitHub repository URL, queries GitHub REST API for metadata and root file structure, and classifies the project type and framework.
 - **Request Body**:
 ```json
 {
@@ -44,28 +44,85 @@ Base URL: `http://localhost:3001`
 {
   "success": true,
   "data": {
-    "id": "e95cfc9b-6eb7-4009-847a-2fb8a39a7384",
+    "id": "d1271a85-7543-46d4-acad-62846a8e19f6",
     "repo": {
       "owner": "facebook",
-      "repo": "react"
+      "repo": "react",
+      "branch": "main"
     },
-    "status": "idle",
+    "repository": {
+      "name": "react",
+      "fullName": "facebook/react",
+      "owner": "facebook",
+      "description": "The library for web and native user interfaces.",
+      "url": "https://github.com/facebook/react",
+      "defaultBranch": "main",
+      "language": "JavaScript",
+      "stars": 250000,
+      "forks": 51000,
+      "openIssues": 1300,
+      "topics": ["declarative", "frontend", "javascript", "library", "react", "ui"],
+      "createdAt": "2013-05-24T16:15:54Z",
+      "updatedAt": "2026-09-13T04:03:01Z",
+      "pushedAt": "2026-09-11T23:35:47Z",
+      "isPrivate": false
+    },
+    "projectType": "React",
+    "framework": "React",
+    "files": [
+      ".github",
+      ".gitignore",
+      "CHANGELOG.md",
+      "README.md",
+      "package.json",
+      "packages",
+      "scripts",
+      "yarn.lock"
+    ],
+    "confidence": 0.95,
+    "details": {
+      "packageJson": {
+        "name": "react",
+        "devDependencies": {},
+        "scripts": {}
+      },
+      "detectedConfigs": ["package.json"],
+      "mainLanguage": "JavaScript"
+    },
+    "status": "completed",
     "repositoryUrl": "https://github.com/facebook/react",
-    "receivedAt": "2026-09-01T12:25:00.000Z",
-    "message": "Repository analysis request accepted for facebook/react."
+    "receivedAt": "2026-09-13T05:00:00.000Z",
+    "message": "Repository analysis completed for facebook/react. Detected: React (React)."
   },
-  "message": "Repository analysis request processed successfully",
-  "timestamp": "2026-09-01T12:25:00.000Z"
+  "message": "Repository analysis completed for facebook/react. Detected: React (React).",
+  "timestamp": "2026-09-13T05:00:00.000Z"
 }
 ```
-- **Validation Error Response** (`400 Bad Request`):
-```json
-{
-  "success": false,
-  "error": "Invalid GitHub owner/organization name: 'invalid-name--'.",
-  "timestamp": "2026-09-01T12:25:00.000Z"
-}
-```
+- **Error Responses**:
+  - `400 Bad Request` (Invalid URL syntax):
+    ```json
+    {
+      "success": false,
+      "error": "URL host must be github.com.",
+      "timestamp": "2026-09-13T05:00:00.000Z"
+    }
+    ```
+  - `404 Not Found` (Repository not found / private):
+    ```json
+    {
+      "success": false,
+      "error": "Repository was not found or is private. RepoLens currently supports public repositories.",
+      "timestamp": "2026-09-13T05:00:00.000Z"
+    }
+    ```
+  - `429 Too Many Requests` (GitHub API rate limit exceeded):
+    ```json
+    {
+      "success": false,
+      "error": "GitHub API rate limit exceeded. Limit resets at 11:00:00 AM. Please try again later or configure a GITHUB_TOKEN.",
+      "timestamp": "2026-09-13T05:00:00.000Z"
+    }
+    ```
 
 ---
 

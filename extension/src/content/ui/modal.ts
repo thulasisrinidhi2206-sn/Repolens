@@ -110,13 +110,13 @@ function getLoadingStateHtml(repo: RepoInfo): string {
         <div class="repolens-spinner"></div>
         <h3 class="repolens-loading-heading">Analyzing Repository...</h3>
         <p class="repolens-loading-subtext">
-          Communicating with RepoLens backend to initialize project evaluation.
+          Fetching repository files and inspecting architecture via GitHub REST API.
         </p>
       </div>
     </div>
 
     <div class="repolens-modal-footer">
-      <span class="repolens-footer-tag">Connecting to POST /api/analyze</span>
+      <span class="repolens-footer-tag">POST /api/analyze</span>
     </div>
   `;
 }
@@ -125,6 +125,18 @@ function getLoadingStateHtml(repo: RepoInfo): string {
  * Generates HTML for the Success state
  */
 function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
+  const projectType = data.projectType || 'Unknown';
+  const framework = data.framework || 'Unknown';
+  const confidencePercent = Math.round((data.confidence || 0) * 100);
+  const files = data.files || [];
+  const filePreview = files.slice(0, 8);
+  const remainingFiles = files.length - filePreview.length;
+
+  const repoMeta = data.repository;
+  const stars = repoMeta?.stars?.toLocaleString() || '0';
+  const forks = repoMeta?.forks?.toLocaleString() || '0';
+  const language = repoMeta?.language || 'Unknown';
+
   return `
     <div class="repolens-modal-header">
       <div class="repolens-modal-title-wrap">
@@ -135,35 +147,49 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
     </div>
 
     <div class="repolens-modal-body">
-      <div class="repolens-repo-pill success">
-        <span class="repolens-repo-pill-icon">✓</span>
-        <span class="repolens-repo-pill-name">${escapeHtml(repo.fullRepo)}</span>
-        <span class="repolens-status-badge">${escapeHtml(data.status.toUpperCase())}</span>
+      <div class="repolens-repo-header-row">
+        <div class="repolens-repo-pill success">
+          <span class="repolens-repo-pill-icon">📦</span>
+          <span class="repolens-repo-pill-name">${escapeHtml(repo.fullRepo)}</span>
+        </div>
+        <div class="repolens-type-badge-container">
+          <span class="repolens-project-type-badge">${escapeHtml(projectType)}</span>
+        </div>
       </div>
 
-      <div class="repolens-success-card">
-        <div class="repolens-data-row">
-          <span class="repolens-data-label">Session ID</span>
-          <code class="repolens-data-code">${escapeHtml(data.id)}</code>
+      <div class="repolens-analysis-summary-card">
+        <div class="repolens-summary-item">
+          <span class="repolens-summary-label">Framework</span>
+          <span class="repolens-summary-val highlight">${escapeHtml(framework)}</span>
         </div>
-        <div class="repolens-data-row">
-          <span class="repolens-data-label">Repository</span>
-          <span class="repolens-data-value">${escapeHtml(data.repo.owner)} / ${escapeHtml(data.repo.repo)}</span>
+        <div class="repolens-summary-item">
+          <span class="repolens-summary-label">Confidence</span>
+          <span class="repolens-summary-val">${confidencePercent}%</span>
         </div>
-        <div class="repolens-data-row">
-          <span class="repolens-data-label">Backend Message</span>
-          <span class="repolens-data-value highlighted">${escapeHtml(data.message)}</span>
+        <div class="repolens-summary-item">
+          <span class="repolens-summary-label">Language</span>
+          <span class="repolens-summary-val">${escapeHtml(language)}</span>
         </div>
-        <div class="repolens-data-row">
-          <span class="repolens-data-label">Received At</span>
-          <span class="repolens-data-value">${new Date(data.receivedAt).toLocaleTimeString()}</span>
+        <div class="repolens-summary-item">
+          <span class="repolens-summary-label">Stats</span>
+          <span class="repolens-summary-val">⭐ ${stars} &nbsp; 🍴 ${forks}</span>
+        </div>
+      </div>
+
+      <div class="repolens-files-section">
+        <div class="repolens-section-title">
+          <span>Root Files (${files.length})</span>
+        </div>
+        <div class="repolens-file-chips">
+          ${filePreview.map(f => `<span class="repolens-file-chip">${escapeHtml(f)}</span>`).join('')}
+          ${remainingFiles > 0 ? `<span class="repolens-file-chip more">+${remainingFiles} more</span>` : ''}
         </div>
       </div>
 
       <div class="repolens-info-callout">
-        <span class="repolens-info-icon">ℹ️</span>
+        <span class="repolens-info-icon">🚀</span>
         <p class="repolens-info-text">
-          Analysis session initialized successfully. Preview generation and AI evaluation will run in upcoming phases.
+          Repository structure classified. Ready for containerized preview and evaluation pipeline.
         </p>
       </div>
     </div>
@@ -197,7 +223,7 @@ function getErrorStateHtml(repo: RepoInfo, errorMessage: string): string {
 
       <div class="repolens-error-card">
         <div class="repolens-error-icon">❌</div>
-        <h3 class="repolens-error-heading">Analysis Request Failed</h3>
+        <h3 class="repolens-error-heading">Analysis Failed</h3>
         <p class="repolens-error-message">${escapeHtml(errorMessage)}</p>
       </div>
     </div>

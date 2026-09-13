@@ -36,6 +36,62 @@ export interface ProjectPreview {
 export type EvaluationStatus = 'idle' | 'analyzing' | 'completed' | 'failed';
 
 /**
+ * Detected project types
+ */
+export type ProjectType =
+  | 'HTML/CSS/JavaScript'
+  | 'React'
+  | 'Vite'
+  | 'Node.js'
+  | 'Next.js'
+  | 'Python'
+  | 'Unknown';
+
+/**
+ * Structured GitHub repository metadata
+ */
+export interface RepositoryMetadata {
+  name: string;
+  fullName: string;
+  owner: string;
+  description: string | null;
+  url: string;
+  defaultBranch: string;
+  language: string | null;
+  stars: number;
+  forks: number;
+  openIssues: number;
+  topics: string[];
+  createdAt: string;
+  updatedAt: string;
+  pushedAt: string;
+  isPrivate?: boolean;
+}
+
+/**
+ * Structured repository analysis result
+ */
+export interface RepositoryAnalysisResult {
+  id?: string;
+  repository: RepositoryMetadata;
+  projectType: ProjectType;
+  framework: string;
+  files: string[];
+  confidence: number;
+  details?: {
+    packageJson?: {
+      name?: string;
+      version?: string;
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
+    detectedConfigs?: string[];
+    mainLanguage?: string | null;
+  };
+}
+
+/**
  * Project evaluation score metrics
  */
 export interface EvaluationMetrics {
@@ -70,7 +126,7 @@ export interface AnalyzeRepoRequest {
 /**
  * Result payload returned from POST /api/analyze
  */
-export interface AnalyzeRepoData {
+export interface AnalyzeRepoData extends RepositoryAnalysisResult {
   id: string;
   repo: RepoIdentifier;
   status: EvaluationStatus;

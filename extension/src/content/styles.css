@@ -97,8 +97,8 @@ body.repolens-modal-open {
 }
 
 .repolens-modal-dialog {
-  width: 480px;
-  max-width: 92vw;
+  width: 500px;
+  max-width: 94vw;
   background-color: #0d1117;
   border: 1px solid #30363d;
   border-radius: 12px;
@@ -156,15 +156,22 @@ body.repolens-modal-open {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
-/* Repo Pill */
+/* Repo Row & Badges */
+.repolens-repo-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .repolens-repo-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  align-self: flex-start;
   padding: 4px 12px;
   border-radius: 20px;
   background-color: #161b22;
@@ -184,14 +191,89 @@ body.repolens-modal-open {
   color: #f85149;
 }
 
-.repolens-status-badge {
-  font-size: 10px;
+.repolens-project-type-badge {
+  font-size: 11px;
   font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 8px;
+  padding: 4px 10px;
+  border-radius: 12px;
   background-color: rgba(56, 139, 253, 0.15);
   color: #58a6ff;
-  margin-left: 4px;
+  border: 1px solid rgba(56, 139, 253, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* Summary Grid Card */
+.repolens-analysis-summary-card {
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+
+.repolens-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.repolens-summary-label {
+  font-size: 11px;
+  color: #8b949e;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.repolens-summary-val {
+  font-size: 13px;
+  color: #e6edf3;
+  font-weight: 500;
+}
+
+.repolens-summary-val.highlight {
+  color: #3fb950;
+  font-weight: 600;
+}
+
+/* Files Section */
+.repolens-files-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.repolens-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.repolens-file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.repolens-file-chip {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  color: #c9d1d9;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.repolens-file-chip.more {
+  background-color: transparent;
+  border-style: dashed;
+  color: #8b949e;
 }
 
 /* Loading Card */
@@ -227,56 +309,6 @@ body.repolens-modal-open {
   margin: 0;
   font-size: 12px;
   color: #8b949e;
-}
-
-/* Success State Card */
-.repolens-success-card {
-  background-color: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.repolens-data-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
-}
-
-.repolens-data-label {
-  color: #8b949e;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-
-.repolens-data-value {
-  color: #e6edf3;
-  text-align: right;
-  word-break: break-word;
-}
-
-.repolens-data-value.highlighted {
-  color: #3fb950;
-  font-weight: 500;
-}
-
-.repolens-data-code {
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  font-size: 11px;
-  background-color: #0d1117;
-  border: 1px solid #30363d;
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #58a6ff;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Info Callout */

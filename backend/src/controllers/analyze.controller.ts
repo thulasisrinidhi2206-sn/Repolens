@@ -4,19 +4,24 @@ import { sendSuccess, sendError } from '../utils/response';
 
 export class AnalyzeController {
   /**
-   * Handles POST /api/analyze requests
+   * Handles POST /api/analyze requests asynchronously
    */
-  public analyzeRepository(req: Request, res: Response): void {
+  public async analyzeRepository(req: Request, res: Response): Promise<void> {
     const { repositoryUrl } = req.body;
 
-    const result = analyzeService.analyzeRepository(repositoryUrl);
+    const result = await analyzeService.analyzeRepository(repositoryUrl);
 
-    if (!result.success) {
-      sendError(res, result.error, 400);
+    if (!result.success || !result.data) {
+      sendError(res, result.error || 'Failed to analyze repository', result.statusCode || 400);
       return;
     }
 
-    sendSuccess(res, result.data, 'Repository analysis request processed successfully', 200);
+    sendSuccess(
+      res,
+      result.data,
+      result.data.message || 'Repository analysis completed successfully',
+      result.statusCode || 200
+    );
   }
 }
 
