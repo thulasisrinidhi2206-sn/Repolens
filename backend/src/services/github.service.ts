@@ -142,6 +142,7 @@ export class GitHubService {
       owner: data.owner?.login || owner,
       description: data.description || null,
       url: data.html_url || `https://github.com/${owner}/${repo}`,
+      homepage: data.homepage ? String(data.homepage).trim() : null,
       defaultBranch: data.default_branch || 'main',
       language: data.language || null,
       stars: data.stargazers_count ?? 0,
@@ -196,7 +197,29 @@ export class GitHubService {
       if (err instanceof GitHubApiError && err.statusCode === 404) {
         return null;
       }
-      // If error is not a simple 404, we log or rethrow if critical, or return null for non-blocking configs
+      return null;
+    }
+  }
+
+  /**
+   * Fetches the repository README content if present
+   */
+  public async fetchReadmeContent(owner: string, repo: string, ref?: string): Promise<string | null> {
+    try {
+      const query = ref ? `?ref=${encodeURIComponent(ref)}` : '';
+      const data: any = await this.request(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/readme${query}`
+      );
+
+      if (data && data.content && data.encoding === 'base64') {
+        return Buffer.from(data.content, 'base64').toString('utf-8');
+      }
+
+      return null;
+    } catch (err: unknown) {
+      if (err instanceof GitHubApiError && err.statusCode === 404) {
+        return null;
+      }
       return null;
     }
   }

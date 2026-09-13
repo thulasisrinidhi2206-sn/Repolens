@@ -56,6 +56,7 @@ export interface RepositoryMetadata {
   owner: string;
   description: string | null;
   url: string;
+  homepage?: string | null;
   defaultBranch: string;
   language: string | null;
   stars: number;
@@ -69,6 +70,39 @@ export interface RepositoryMetadata {
 }
 
 /**
+ * Sources where a demo URL was discovered
+ */
+export type DemoSource =
+  | 'metadata_homepage'
+  | 'package_json'
+  | 'readme_badge'
+  | 'readme_link'
+  | 'readme_text';
+
+/**
+ * Live demo URL candidate descriptor
+ */
+export interface DemoUrlCandidate {
+  url: string;
+  source: DemoSource;
+  confidence: number;
+  domain?: string;
+  description?: string;
+  isValidated?: boolean;
+  isReachable?: boolean;
+  statusCode?: number;
+}
+
+/**
+ * Result of existing demo detection
+ */
+export interface DemoDetectionResult {
+  hasDemo: boolean;
+  primaryDemoUrl: string | null;
+  candidates: DemoUrlCandidate[];
+}
+
+/**
  * Structured repository analysis result
  */
 export interface RepositoryAnalysisResult {
@@ -78,10 +112,12 @@ export interface RepositoryAnalysisResult {
   framework: string;
   files: string[];
   confidence: number;
+  demo?: DemoDetectionResult;
   details?: {
     packageJson?: {
       name?: string;
       version?: string;
+      homepage?: string;
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
       scripts?: Record<string, string>;

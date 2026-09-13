@@ -110,7 +110,7 @@ function getLoadingStateHtml(repo: RepoInfo): string {
         <div class="repolens-spinner"></div>
         <h3 class="repolens-loading-heading">Analyzing Repository...</h3>
         <p class="repolens-loading-subtext">
-          Fetching repository files and inspecting architecture via GitHub REST API.
+          Fetching repository files, inspecting architecture, and searching for live demos.
         </p>
       </div>
     </div>
@@ -137,6 +137,9 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
   const forks = repoMeta?.forks?.toLocaleString() || '0';
   const language = repoMeta?.language || 'Unknown';
 
+  const demoResult = data.demo;
+  const primaryDemo = demoResult?.primaryDemoUrl;
+
   return `
     <div class="repolens-modal-header">
       <div class="repolens-modal-title-wrap">
@@ -156,6 +159,23 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
           <span class="repolens-project-type-badge">${escapeHtml(projectType)}</span>
         </div>
       </div>
+
+      ${primaryDemo ? `
+      <div class="repolens-demo-banner">
+        <div class="repolens-demo-info">
+          <span class="repolens-demo-icon">🌐</span>
+          <div class="repolens-demo-text-wrap">
+            <span class="repolens-demo-label">Live Demo Detected</span>
+            <a href="${escapeHtml(primaryDemo)}" target="_blank" rel="noopener noreferrer" class="repolens-demo-link">
+              ${escapeHtml(primaryDemo)} ↗
+            </a>
+          </div>
+        </div>
+        <a href="${escapeHtml(primaryDemo)}" target="_blank" rel="noopener noreferrer" class="repolens-demo-btn">
+          Open Demo
+        </a>
+      </div>
+      ` : ''}
 
       <div class="repolens-analysis-summary-card">
         <div class="repolens-summary-item">
@@ -189,7 +209,7 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
       <div class="repolens-info-callout">
         <span class="repolens-info-icon">🚀</span>
         <p class="repolens-info-text">
-          Repository structure classified. Ready for containerized preview and evaluation pipeline.
+          Repository classified. ${primaryDemo ? 'Existing live deployment found!' : 'Ready for containerized preview sandbox.'}
         </p>
       </div>
     </div>

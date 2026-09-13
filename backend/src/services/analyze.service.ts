@@ -7,6 +7,7 @@ import { AnalyzeRepoData } from '@repolens/shared';
 import { GitHubUrlValidatorService, ValidationResult } from './validator.service';
 import { gitHubService, GitHubApiError } from './github.service';
 import { ProjectDetectorService } from './detector.service';
+import { demoDetectorService } from './demo-detector.service';
 
 export interface AnalyzeServiceResult {
   success: boolean;
@@ -18,7 +19,7 @@ export interface AnalyzeServiceResult {
 
 export class AnalyzeService {
   /**
-   * Performs full repository analysis using GitHub REST API and ProjectDetector
+   * Performs full repository analysis using GitHub REST API, ProjectDetector, and DemoDetector
    */
   public async analyzeRepository(rawUrl: string): Promise<AnalyzeServiceResult> {
     // 1. Validate and parse GitHub repository URL
@@ -44,21 +45,45 @@ export class AnalyzeService {
       const rootItems = await gitHubService.getRootContents(owner, repo, metadata.defaultBranch);
       const rootFileNames = rootItems.map(item => item.name);
 
-      // 4. Fetch Configuration Files (package.json, requirements.txt, pyproject.toml) if present
+      // 4. Fetch Configuration Files (package.json, requirements.txt, pyproject.toml) and README if present
       let packageJsonRaw: string | null = null;
       let pythonConfigRaw: string | null = null;
+      let readmeContent: string | null = null;
 
       const fileSet = new Set(rootFileNames.map(f => f.toLowerCase()));
 
+      const fetchTasks: Promise<void>[] = [];
+
       if (fileSet.has('package.json')) {
-        packageJsonRaw = await gitHubService.getFileRawContent(owner, repo, 'package.json', metadata.defaultBranch);
+        fetchTasks.push(
+          gitHubService.getFileRawContent(owner, repo, 'package.json', metadata.defaultBranch).then(content => {
+            packageJsonRaw = content;
+          })
+        );
       }
 
       if (fileSet.has('requirements.txt')) {
-        pythonConfigRaw = await gitHubService.getFileRawContent(owner, repo, 'requirements.txt', metadata.defaultBranch);
+        fetchTasks.push(
+          gitHubService.getFileRawContent(owner, repo, 'requirements.txt', metadata.defaultBranch).then(content => {
+            pythonConfigRaw = content;
+          })
+        );
       } else if (fileSet.has('pyproject.toml')) {
-        pythonConfigRaw = await gitHubService.getFileRawContent(owner, repo, 'pyproject.toml', metadata.defaultBranch);
+        fetchTasks.push(
+          gitHubService.getFileRawContent(owner, repo, 'pyproject.toml', metadata.defaultBranch).then(content => {
+            pythonConfigRaw = content;
+          })
+        );
       }
+
+      // Fetch README content
+      fetchTasks.push(
+        gitHubService.fetchReadmeContent(owner, repo, metadata.defaultBranch).then(content => {
+          readmeContent = content;
+        })
+      );
+
+      await Promise.all(fetchTasks);
 
       // 5. Detect Project Type and Framework
       const detection = ProjectDetectorService.detect({
@@ -68,7 +93,14 @@ export class AnalyzeService {
         metadata,
       });
 
-      // 6. Build structured response conforming to specification
+      // 6. Detect Existing Live Demo & Deployment URLs
+      const demo = await demoDetectorService.detectDemos({
+        metadata,
+        packageJsonRaw,
+        readmeContent,
+      });
+
+      // 7. Build structured response conforming to specification
       const responseData: AnalyzeRepoData = {
         id: analysisSessionId,
         repo: {
@@ -81,11 +113,12 @@ export class AnalyzeService {
         framework: detection.framework,
         files: rootFileNames,
         confidence: detection.confidence,
+        demo,
         details: detection.details,
         status: 'completed',
         repositoryUrl: validation.normalizedUrl,
         receivedAt: new Date().toISOString(),
-        message: `Repository analysis completed for ${owner}/${repo}. Detected: ${detection.projectType} (${detection.framework}).`,
+        message: `Repository analysis completed for ${owner}/${repo}. Detected: ${detection.projectType} (${detection.framework}).${demo.hasDemo ? ` Found live demo: ${demo.primaryDemoUrl}` : ''}`,
       };
 
       return {
