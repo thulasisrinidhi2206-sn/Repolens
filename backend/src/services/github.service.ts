@@ -223,6 +223,72 @@ export class GitHubService {
       return null;
     }
   }
+
+  /**
+   * Fetches the full recursive Git tree for a branch or commit SHA
+   */
+  public async getGitTree(
+    owner: string,
+    repo: string,
+    treeShaOrBranch: string,
+    recursive: boolean = true
+  ): Promise<{ path: string; mode: string; type: 'blob' | 'tree'; sha: string; size?: number }[]> {
+    try {
+      const query = recursive ? '?recursive=1' : '';
+      const data: any = await this.request(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(treeShaOrBranch)}${query}`
+      );
+
+      if (data && Array.isArray(data.tree)) {
+        return data.tree.map((item: any) => ({
+          path: item.path,
+          mode: item.mode,
+          type: item.type === 'blob' ? 'blob' : 'tree',
+          sha: item.sha,
+          size: item.size,
+        }));
+      }
+
+      return [];
+    } catch (err: unknown) {
+      if (err instanceof GitHubApiError && err.statusCode === 404) {
+        return [];
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Fetches file content as Buffer (supports binary assets like images, fonts, etc.)
+   */
+  public async getFileBuffer(owner: string, repo: string, path: string, ref?: string): Promise<Buffer | null> {
+    try {
+      const query = ref ? `?ref=${encodeURIComponent(ref)}` : '';
+      const data: any = await this.request(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}${query}`
+      );
+
+      if (data && data.content && data.encoding === 'base64') {
+        return Buffer.from(data.content, 'base64');
+      }
+
+      // If download_url is available for larger files
+      if (data && data.download_url) {
+        const downloadRes = await fetch(data.download_url);
+        if (downloadRes.ok) {
+          const arrayBuf = await downloadRes.arrayBuffer();
+          return Buffer.from(arrayBuf);
+        }
+      }
+
+      return null;
+    } catch (err: unknown) {
+      if (err instanceof GitHubApiError && err.statusCode === 404) {
+        return null;
+      }
+      return null;
+    }
+  }
 }
 
 export const gitHubService = new GitHubService();

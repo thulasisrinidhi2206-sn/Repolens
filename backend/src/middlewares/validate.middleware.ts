@@ -18,3 +18,9 @@ export function validateAnalyzeRequest(
 
   next();
 }
+
+/**
+ * Middleware to validate that preview creation request body contains repositoryUrl
+ */
+export const validatePreviewRequest = validateAnalyzeRequest;
+

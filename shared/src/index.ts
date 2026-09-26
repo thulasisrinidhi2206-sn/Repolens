@@ -24,10 +24,42 @@ export interface ProjectPreview {
   id: string;
   repo: RepoIdentifier;
   status: PreviewStatus;
+  projectType?: ProjectType;
+  framework?: string;
   previewUrl?: string;
+  containerId?: string;
+  port?: number;
+  expiresAt?: string;
   logs?: string[];
   createdAt: string;
   updatedAt: string;
+  error?: string;
+}
+
+/**
+ * Static preview eligibility evaluation result
+ */
+export interface StaticPreviewEligibility {
+  isEligible: boolean;
+  reason?: string;
+  entryFile?: string;
+  staticFilesCount?: number;
+  projectType?: ProjectType;
+}
+
+/**
+ * Request payload for POST /api/preview
+ */
+export interface CreatePreviewRequest {
+  repositoryUrl: string;
+}
+
+/**
+ * Result payload returned from POST /api/preview
+ */
+export interface CreatePreviewData extends ProjectPreview {
+  repositoryUrl: string;
+  message: string;
 }
 
 /**
