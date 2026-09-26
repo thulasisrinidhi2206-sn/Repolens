@@ -15,6 +15,7 @@ import { StaticDetectorService } from './static-detector.service';
 import { dockerRuntimeService } from './docker-runtime.service';
 import { previewManagerService } from './preview-manager.service';
 import { previewCleanupService } from './preview-cleanup.service';
+import { staticPreviewHandler } from './handlers/static.handler';
 
 export interface PreviewServiceResult {
   success: boolean;
@@ -129,75 +130,49 @@ export class PreviewService {
       previewManagerService.appendLog(previewId, `Created temporary workspace at ${workspacePath}`);
       previewManagerService.updateSession(previewId, { status: 'building' });
 
-      // 8. Filter and Download Static Files Safely
-      const safeRelativePaths = StaticDetectorService.filterSafeStaticFiles(allFilePaths);
-      previewManagerService.appendLog(previewId, `Fetching ${safeRelativePaths.length} static repository files from GitHub...`);
-
-      // Limit concurrent downloads
-      const concurrency = 6;
-      for (let i = 0; i < safeRelativePaths.length; i += concurrency) {
-        const batch = safeRelativePaths.slice(i, i + concurrency);
-        await Promise.all(
-          batch.map(async (relPath) => {
-            const fileBuf = await gitHubService.getFileBuffer(owner, repo, relPath, metadata.defaultBranch);
-            if (fileBuf) {
-              const targetFilePath = path.join(workspacePath, relPath);
-              // Ensure target path does not escape workspace directory
-              const normalizedTarget = path.resolve(targetFilePath);
-              if (!normalizedTarget.startsWith(path.resolve(workspacePath))) {
-                console.warn(`[PreviewService] Blocked potential directory traversal attempt: ${relPath}`);
-                return;
-              }
-              await fs.mkdir(path.dirname(targetFilePath), { recursive: true });
-              await fs.writeFile(targetFilePath, fileBuf);
-            }
-          })
-        );
-      }
-
-      // If entry index.html is located in public/ or dist/, copy it to root of workspace if root index.html is missing
-      if (eligibility.entryFile && eligibility.entryFile !== 'index.html') {
-        const entrySource = path.join(workspacePath, eligibility.entryFile);
-        const rootTarget = path.join(workspacePath, 'index.html');
-        try {
-          await fs.copyFile(entrySource, rootTarget);
-        } catch (_err) {
-          // Ignore copy if already present
-        }
-      }
-
-      // Verify index.html exists in workspace
-      try {
-        await fs.access(path.join(workspacePath, 'index.html'));
-      } catch (_err) {
-        throw new Error('Verification failed: index.html is missing from prepared workspace.');
-      }
-
-      previewManagerService.appendLog(previewId, 'Workspace files successfully downloaded and prepared.');
-
-      // 9. Allocate Ephemeral Port & Start Sandboxed Container
+      // 8. Allocate Ephemeral Port & Prepare Workspace via StaticPreviewHandler
       const hostPort = await dockerRuntimeService.findAvailablePort();
-      previewManagerService.appendLog(previewId, `Starting isolated Docker container (nginx:alpine) on localhost:${hostPort}...`);
 
-      const containerResult = await dockerRuntimeService.startStaticContainer({
+      const previewContext = {
         previewId,
+        repo: repoIdentifier,
+        metadata,
         workspacePath,
+        allFilePaths,
         port: hostPort,
-      });
+      };
 
-      // 10. Update Session State to Ready
+      previewManagerService.appendLog(previewId, `Fetching and verifying static repository files from GitHub...`);
+      await staticPreviewHandler.prepareWorkspace(previewContext);
+      previewManagerService.appendLog(previewId, 'Workspace files successfully downloaded and verified.');
+
+      // 9. Start Sandboxed Container
+      const containerOptions = staticPreviewHandler.getContainerOptions(previewContext);
+
+      console.log(`[PreviewLifecycle:ContainerCreation] Creating isolated container repolens-preview-${previewId} on localhost:${hostPort}`);
+      previewManagerService.appendLog(previewId, `Creating isolated Docker container (nginx:alpine) on localhost:${hostPort}...`);
+
+      const containerResult = await dockerRuntimeService.startStaticContainer(containerOptions);
+
+      console.log(`[PreviewLifecycle:ContainerCreated] Container ${containerResult.containerId} created for session ${previewId}`);
+      previewManagerService.appendLog(previewId, `Container ${containerResult.containerId} created.`);
+
+      // 10. Update Session State to Ready & Log Preview Start
       previewManagerService.updateSession(previewId, {
         status: 'ready',
         previewUrl: containerResult.previewUrl,
         containerId: containerResult.containerId,
         port: containerResult.port,
       });
+
+      console.log(`[PreviewLifecycle:PreviewStart] Preview started successfully at ${containerResult.previewUrl} for ${owner}/${repo}`);
       previewManagerService.appendLog(previewId, `Preview server running at ${containerResult.previewUrl}`);
 
       // 11. Schedule Automatic TTL Expiry Cleanup (10 minutes)
       previewCleanupService.registerPreview(previewId, workspacePath, 10 * 60 * 1000, (id) => {
         previewManagerService.updateSession(id, { status: 'stopped' });
         previewManagerService.appendLog(id, 'Preview session expired and resources cleaned up.');
+        console.log(`[PreviewLifecycle:Cleanup] Preview session ${id} expired and cleaned up.`);
       });
 
       const updatedSession = previewManagerService.getSession(previewId) || session;
@@ -215,15 +190,16 @@ export class PreviewService {
       };
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Unknown preview failure';
-      console.error(`[PreviewService] Preview creation failed for ${previewId}:`, err);
+      console.error(`[PreviewLifecycle:PreviewFailure] Preview failure for session ${previewId}: ${errMsg}`);
 
       previewManagerService.updateSession(previewId, {
         status: 'failed',
         error: errMsg,
       });
-      previewManagerService.appendLog(previewId, `Error: ${errMsg}`);
+      previewManagerService.appendLog(previewId, `Preview failed: ${errMsg}`);
 
       // Cleanup any allocated resources immediately on failure
+      console.log(`[PreviewLifecycle:Cleanup] Triggering failure cleanup for preview ${previewId}`);
       await previewCleanupService.cleanup(previewId, workspacePath);
 
       return {
