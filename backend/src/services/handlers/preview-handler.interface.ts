@@ -15,6 +15,13 @@ export interface PreviewContext {
   port: number;
 }
 
+export interface BuildResult {
+  success: boolean;
+  logs: string[];
+  error?: string;
+  distPath?: string;
+}
+
 export interface IPreviewHandler {
   readonly supportedProjectType: ProjectType;
 
@@ -29,8 +36,14 @@ export interface IPreviewHandler {
   prepareWorkspace(context: PreviewContext): Promise<void>;
 
   /**
-   * Returns the Docker container start options for isolated execution
+   * Builds the application inside an isolated container if required
+   */
+  build?(context: PreviewContext): Promise<BuildResult>;
+
+  /**
+   * Returns the Docker container start options for isolated serving execution
    */
   getContainerOptions(context: PreviewContext): ContainerStartOptions;
 }
+
 

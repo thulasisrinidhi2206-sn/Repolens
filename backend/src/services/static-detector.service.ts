@@ -62,18 +62,54 @@ export const MAX_TOTAL_WORKSPACE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB total wo
 
 export class StaticDetectorService {
   /**
-   * Evaluates if repository is eligible for static isolated preview
+   * Evaluates if repository is eligible for isolated preview (Static or Vite)
    */
   public static evaluateEligibility(context: StaticProjectDetectionContext): StaticPreviewEligibility {
-    const { projectType, rootFiles, allFiles = rootFiles } = context;
+    const { projectType, framework = '', rootFiles, allFiles = rootFiles } = context;
 
     const lowerRoot = rootFiles.map(f => f.toLowerCase());
+    const lowerAll = allFiles.map(f => f.toLowerCase());
 
-    // 1. Check for build-dependent project types (React, Vite, Next.js, Python, etc.)
-    if (projectType === 'React' || projectType === 'Vite' || projectType === 'Next.js') {
+    // 1. Check for Vite / React-Vite Project
+    const hasViteConfig = lowerRoot.some(f =>
+      f === 'vite.config.js' || f === 'vite.config.ts' || f === 'vite.config.mjs' || f === 'vite.config.cjs'
+    );
+    const isViteProject =
+      projectType === 'Vite' ||
+      framework.toLowerCase().includes('vite') ||
+      hasViteConfig;
+
+    if (isViteProject) {
+      const hasPackageJson = lowerRoot.includes('package.json');
+      if (!hasPackageJson) {
+        return {
+          isEligible: false,
+          reason: 'Vite project is missing a package.json file required for build execution.',
+          projectType: 'Vite',
+        };
+      }
+
+      return {
+        isEligible: true,
+        entryFile: 'package.json',
+        staticFilesCount: allFiles.length,
+        projectType: 'Vite',
+      };
+    }
+
+    // 2. Reject non-Vite build-dependent project types (Next.js, Create-React-App without Vite, Python, etc.)
+    if (projectType === 'Next.js') {
       return {
         isEligible: false,
-        reason: `Build-dependent framework detected (${context.framework || projectType}). Bundled preview builds will be supported in a future phase.`,
+        reason: `Build-dependent framework detected (Next.js). Next.js server-side preview builds will be supported in a future phase.`,
+        projectType,
+      };
+    }
+
+    if (projectType === 'React' && !isViteProject) {
+      return {
+        isEligible: false,
+        reason: `Build-dependent framework detected (React). Non-Vite React build pipelines will be supported in a future phase.`,
         projectType,
       };
     }
@@ -81,7 +117,7 @@ export class StaticDetectorService {
     if (projectType === 'Python') {
       return {
         isEligible: false,
-        reason: 'Python backend project detected. Server-side execution is not supported in static preview mode.',
+        reason: 'Python backend project detected. Server-side execution is not supported in preview mode.',
         projectType,
       };
     }
@@ -94,7 +130,7 @@ export class StaticDetectorService {
       };
     }
 
-    // 2. Identify Entry HTML file
+    // 3. Identify Entry HTML file for Static Web projects
     let entryFile: string | undefined;
 
     if (lowerRoot.includes('index.html')) {
@@ -125,7 +161,7 @@ export class StaticDetectorService {
       };
     }
 
-    // 3. Count valid static assets
+    // 4. Count valid static assets
     const validStaticFiles = this.filterSafeStaticFiles(allFiles);
 
     return {

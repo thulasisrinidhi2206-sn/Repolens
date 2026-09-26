@@ -16,6 +16,8 @@ import { dockerRuntimeService } from './docker-runtime.service';
 import { previewManagerService } from './preview-manager.service';
 import { previewCleanupService } from './preview-cleanup.service';
 import { staticPreviewHandler } from './handlers/static.handler';
+import { vitePreviewHandler } from './handlers/vite.handler';
+import { IPreviewHandler } from './handlers/preview-handler.interface';
 
 export interface PreviewServiceResult {
   success: boolean;
@@ -26,8 +28,13 @@ export interface PreviewServiceResult {
 }
 
 export class PreviewService {
+  private handlers: IPreviewHandler[] = [
+    staticPreviewHandler,
+    vitePreviewHandler,
+  ];
+
   /**
-   * Generates an isolated, sandboxed preview for an eligible static GitHub repository
+   * Generates an isolated, sandboxed preview for an eligible GitHub repository (Static or Vite)
    */
   public async createPreview(rawUrl: string): Promise<PreviewServiceResult> {
     // 1. Validate GitHub Repository URL
@@ -86,7 +93,7 @@ export class PreviewService {
       metadata,
     });
 
-    // 5. Evaluate Static Preview Eligibility
+    // 5. Evaluate Preview Eligibility (Static or Vite)
     const eligibility = StaticDetectorService.evaluateEligibility({
       projectType: projectDetection.projectType,
       framework: projectDetection.framework,
@@ -98,12 +105,28 @@ export class PreviewService {
       return {
         success: false,
         statusCode: 400,
-        error: eligibility.reason || 'This repository is not eligible for static HTML preview.',
+        error: eligibility.reason || 'This repository is not eligible for visual preview.',
         errorType: 'UNSUPPORTED_PROJECT_TYPE',
       };
     }
 
-    // 6. Check Container Runtime Availability (Docker)
+    const activeProjectType = eligibility.projectType || projectDetection.projectType;
+
+    // 6. Select Appropriate Modular Preview Handler
+    const handler = this.handlers.find(h =>
+      h.canHandle(activeProjectType, projectDetection.framework)
+    );
+
+    if (!handler) {
+      return {
+        success: false,
+        statusCode: 400,
+        error: `No preview handler available for project type '${activeProjectType}'.`,
+        errorType: 'UNSUPPORTED_PROJECT_TYPE',
+      };
+    }
+
+    // 7. Check Container Runtime Availability (Docker)
     const isDockerReady = await dockerRuntimeService.isAvailable();
     if (!isDockerReady) {
       return {
@@ -118,19 +141,19 @@ export class PreviewService {
     const session = previewManagerService.createSession({
       previewId,
       repo: repoIdentifier,
-      projectType: 'HTML/CSS/JavaScript',
+      projectType: activeProjectType,
       framework: projectDetection.framework,
       ttlMinutes: 10,
     });
 
-    // 7. Create Isolated Temporary Workspace Directory on Host
+    // 8. Create Isolated Temporary Workspace Directory on Host
     const workspacePath = path.join(os.tmpdir(), 'repolens-previews', previewId);
     try {
       await fs.mkdir(workspacePath, { recursive: true });
       previewManagerService.appendLog(previewId, `Created temporary workspace at ${workspacePath}`);
       previewManagerService.updateSession(previewId, { status: 'building' });
 
-      // 8. Allocate Ephemeral Port & Prepare Workspace via StaticPreviewHandler
+      // 9. Allocate Ephemeral Port & Prepare Workspace via Handler
       const hostPort = await dockerRuntimeService.findAvailablePort();
 
       const previewContext = {
@@ -142,22 +165,33 @@ export class PreviewService {
         port: hostPort,
       };
 
-      previewManagerService.appendLog(previewId, `Fetching and verifying static repository files from GitHub...`);
-      await staticPreviewHandler.prepareWorkspace(previewContext);
+      previewManagerService.appendLog(previewId, `Downloading repository source files from GitHub...`);
+      await handler.prepareWorkspace(previewContext);
       previewManagerService.appendLog(previewId, 'Workspace files successfully downloaded and verified.');
 
-      // 9. Start Sandboxed Container
-      const containerOptions = staticPreviewHandler.getContainerOptions(previewContext);
+      // 10. Execute Containerized Build if Handler Requires It
+      if (handler.build) {
+        previewManagerService.appendLog(previewId, 'Starting containerized dependency install and build (node:20-alpine)...');
+        const buildResult = await handler.build(previewContext);
 
-      console.log(`[PreviewLifecycle:ContainerCreation] Creating isolated container repolens-preview-${previewId} on localhost:${hostPort}`);
-      previewManagerService.appendLog(previewId, `Creating isolated Docker container (nginx:alpine) on localhost:${hostPort}...`);
+        if (!buildResult.success) {
+          throw new Error(buildResult.error || 'Compilation failed inside build container.');
+        }
+        previewManagerService.appendLog(previewId, 'Containerized build completed successfully.');
+      }
+
+      // 11. Start Sandboxed Serving Container (Nginx)
+      const containerOptions = handler.getContainerOptions(previewContext);
+
+      console.log(`[PreviewLifecycle:ContainerCreation] Creating isolated serving container repolens-preview-${previewId} on localhost:${hostPort}`);
+      previewManagerService.appendLog(previewId, `Creating isolated Docker serving container on localhost:${hostPort}...`);
 
       const containerResult = await dockerRuntimeService.startStaticContainer(containerOptions);
 
       console.log(`[PreviewLifecycle:ContainerCreated] Container ${containerResult.containerId} created for session ${previewId}`);
       previewManagerService.appendLog(previewId, `Container ${containerResult.containerId} created.`);
 
-      // 10. Update Session State to Ready & Log Preview Start
+      // 12. Update Session State to Ready & Log Preview Start
       previewManagerService.updateSession(previewId, {
         status: 'ready',
         previewUrl: containerResult.previewUrl,
@@ -168,7 +202,7 @@ export class PreviewService {
       console.log(`[PreviewLifecycle:PreviewStart] Preview started successfully at ${containerResult.previewUrl} for ${owner}/${repo}`);
       previewManagerService.appendLog(previewId, `Preview server running at ${containerResult.previewUrl}`);
 
-      // 11. Schedule Automatic TTL Expiry Cleanup (10 minutes)
+      // 13. Schedule Automatic TTL Expiry Cleanup (10 minutes)
       previewCleanupService.registerPreview(previewId, workspacePath, 10 * 60 * 1000, (id) => {
         previewManagerService.updateSession(id, { status: 'stopped' });
         previewManagerService.appendLog(id, 'Preview session expired and resources cleaned up.');
@@ -180,7 +214,7 @@ export class PreviewService {
       const responseData: CreatePreviewData = {
         ...updatedSession,
         repositoryUrl: validation.normalizedUrl,
-        message: `Static preview started successfully. Container isolated and accessible on ${containerResult.previewUrl}`,
+        message: `Preview started successfully (${activeProjectType}). Container isolated and accessible on ${containerResult.previewUrl}`,
       };
 
       return {

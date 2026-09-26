@@ -145,6 +145,91 @@ export class DockerRuntimeService {
   }
 
   /**
+   * Runs an isolated build container (node:20-alpine) with resource limits, --ignore-scripts, and timeout
+   */
+  public async runContainerizedBuild(options: {
+    previewId: string;
+    workspacePath: string;
+    buildCommand?: string;
+    timeoutMs?: number;
+  }): Promise<{ success: boolean; exitCode: number; logs: string[]; error?: string }> {
+    const {
+      previewId,
+      workspacePath,
+      buildCommand = 'npm install --no-audit --no-fund --ignore-scripts && (npm run build || npx vite build --outDir dist)',
+      timeoutMs = 120000,
+    } = options;
+
+    const builderName = `repolens-builder-${previewId}`;
+    const resolvedPath = path.resolve(workspacePath);
+
+    const args = [
+      'run',
+      '--name', builderName,
+      '--rm',
+      '--label', 'repolens.preview=true',
+      '--label', 'repolens.builder=true',
+      // 1. Filesystem isolation: Mount workspace to /app
+      '-v', `${resolvedPath}:/app:rw`,
+      '-w', '/app',
+      // 2. Resource & Process Limits
+      '--cpus=1.0',
+      '--memory=1024m',
+      '--memory-swap=1024m',
+      '--pids-limit=128',
+      // 3. Privileges & Security capabilities
+      '--security-opt=no-new-privileges',
+      // 4. Clean environment: Zero host secrets/env vars leaked
+      '-e', 'NODE_ENV=production',
+      '-e', 'CI=true',
+      // 5. Image & Command
+      'node:20-alpine',
+      'sh', '-c', buildCommand,
+    ];
+
+    return new Promise((resolve) => {
+      execFile(
+        this.dockerCliPath,
+        args,
+        { timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 },
+        (error, stdout, stderr) => {
+          const rawOutput = `${stdout || ''}\n${stderr || ''}`.trim();
+          const sanitizedOutput = this.sanitizeBuildOutput(rawOutput, resolvedPath);
+          const logs = sanitizedOutput.split('\n').filter(l => l.trim().length > 0);
+
+          if (error) {
+            // Handle timeout specifically
+            if (error.killed) {
+              // Ensure builder container is killed
+              execFile(this.dockerCliPath, ['rm', '-f', builderName], () => {});
+              return resolve({
+                success: false,
+                exitCode: 124,
+                logs,
+                error: `Build timed out after ${Math.round(timeoutMs / 1000)} seconds.`,
+              });
+            }
+
+            const cleanError = this.extractCleanErrorMessage(logs, error.message);
+            return resolve({
+              success: false,
+              exitCode: typeof error.code === 'number' ? error.code : 1,
+              logs,
+              error: cleanError,
+            });
+          }
+
+          resolve({
+            success: true,
+            exitCode: 0,
+            logs,
+          });
+        }
+      );
+    });
+  }
+
+  /**
    * Fetches container logs safely
    */
   public async getContainerLogs(previewId: string, tailLines: number = 50): Promise<string[]> {
@@ -161,7 +246,51 @@ export class DockerRuntimeService {
       });
     });
   }
+
+  /**
+   * Sanitizes raw build output to prevent exposing host paths, environment details, or credentials
+   */
+  public sanitizeBuildOutput(output: string, hostWorkspacePath: string): string {
+    if (!output) return '';
+
+    // Replace absolute host paths with generic container paths
+    const normalizedHostPath = hostWorkspacePath.replace(/\\/g, '/');
+    const escapedHostPath = normalizedHostPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const hostRegex = new RegExp(escapedHostPath, 'gi');
+
+    let sanitized = output.replace(hostRegex, '/app');
+
+    // Also strip generic Windows / temporary directory patterns
+    sanitized = sanitized.replace(/[A-Z]:\\[^\s:"'\n]+/gi, '/app');
+
+    // Redact tokens and bearer credentials
+    sanitized = sanitized.replace(/(Bearer\s+)[A-Za-z0-9_\-\.]+/gi, '$1[REDACTED]');
+    sanitized = sanitized.replace(/(ghp_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+)/gi, '[REDACTED_TOKEN]');
+
+    return sanitized;
+  }
+
+  /**
+   * Extracts the most relevant compilation error message from build logs
+   */
+  private extractCleanErrorMessage(logs: string[], fallback: string): string {
+    // Look for compiler or Vite error lines
+    const errorLines = logs.filter(l =>
+      /\berror\b/i.test(l) ||
+      /\bfailed\b/i.test(l) ||
+      /\bSyntaxError\b/i.test(l) ||
+      /\bTypeScript\b/i.test(l) ||
+      /\[vite\]/i.test(l)
+    );
+
+    if (errorLines.length > 0) {
+      return errorLines.slice(-3).join(' | ');
+    }
+
+    return fallback;
+  }
 }
 
 export const dockerRuntimeService = new DockerRuntimeService();
+
 
