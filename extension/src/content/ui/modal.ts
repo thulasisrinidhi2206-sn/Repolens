@@ -48,9 +48,18 @@ export function updateModalToSuccess(repo: RepoInfo, data: AnalyzeRepoData): voi
 
   const closeBtn = dialog.querySelector('#repolens-modal-close-btn');
   const doneBtn = dialog.querySelector('#repolens-modal-done-btn');
+  const openDemoBtn = dialog.querySelector<HTMLAnchorElement>('#repolens-open-demo-btn');
 
   closeBtn?.addEventListener('click', closeActiveModal);
   doneBtn?.addEventListener('click', closeActiveModal);
+
+  const primaryDemoUrl = data.demo?.primaryDemoUrl;
+  if (openDemoBtn && primaryDemoUrl) {
+    openDemoBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.open(primaryDemoUrl, '_blank', 'noopener,noreferrer');
+    });
+  }
 }
 
 /**
@@ -125,6 +134,8 @@ function getLoadingStateHtml(repo: RepoInfo): string {
  * Generates HTML for the Success state
  */
 function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
+  const repoMeta = data.repository;
+  const repoFullName = repoMeta?.fullName || repo.fullRepo;
   const projectType = data.projectType || 'Unknown';
   const framework = data.framework || 'Unknown';
   const confidencePercent = Math.round((data.confidence || 0) * 100);
@@ -132,13 +143,13 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
   const filePreview = files.slice(0, 8);
   const remainingFiles = files.length - filePreview.length;
 
-  const repoMeta = data.repository;
   const stars = repoMeta?.stars?.toLocaleString() || '0';
   const forks = repoMeta?.forks?.toLocaleString() || '0';
   const language = repoMeta?.language || 'Unknown';
 
   const demoResult = data.demo;
-  const primaryDemo = demoResult?.primaryDemoUrl;
+  const hasDemo = Boolean(demoResult?.hasDemo && demoResult?.primaryDemoUrl);
+  const primaryDemoUrl = demoResult?.primaryDemoUrl || null;
 
   return `
     <div class="repolens-modal-header">
@@ -153,34 +164,62 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
       <div class="repolens-repo-header-row">
         <div class="repolens-repo-pill success">
           <span class="repolens-repo-pill-icon">📦</span>
-          <span class="repolens-repo-pill-name">${escapeHtml(repo.fullRepo)}</span>
+          <span class="repolens-repo-pill-name">${escapeHtml(repoFullName)}</span>
         </div>
         <div class="repolens-type-badge-container">
           <span class="repolens-project-type-badge">${escapeHtml(projectType)}</span>
         </div>
       </div>
 
-      ${primaryDemo ? `
-      <div class="repolens-demo-banner">
-        <div class="repolens-demo-info">
-          <span class="repolens-demo-icon">🌐</span>
-          <div class="repolens-demo-text-wrap">
-            <span class="repolens-demo-label">Live Demo Detected</span>
-            <a href="${escapeHtml(primaryDemo)}" target="_blank" rel="noopener noreferrer" class="repolens-demo-link">
-              ${escapeHtml(primaryDemo)} ↗
-            </a>
+      <!-- Demo Availability Section -->
+      ${hasDemo && primaryDemoUrl ? `
+      <div class="repolens-demo-card detected">
+        <div class="repolens-demo-header">
+          <div class="repolens-demo-status-wrap">
+            <span class="repolens-demo-status-indicator available"></span>
+            <span class="repolens-demo-status-text available">Live Demo Available</span>
+          </div>
+          <a href="${escapeHtml(primaryDemoUrl)}" target="_blank" rel="noopener noreferrer" class="repolens-demo-open-btn" id="repolens-open-demo-btn">
+            <span>Open Live Demo</span>
+            <span class="repolens-btn-arrow">↗</span>
+          </a>
+        </div>
+        <div class="repolens-demo-url-box">
+          <span class="repolens-demo-url-icon">🌐</span>
+          <a href="${escapeHtml(primaryDemoUrl)}" target="_blank" rel="noopener noreferrer" class="repolens-demo-url-link" title="${escapeHtml(primaryDemoUrl)}">
+            ${escapeHtml(primaryDemoUrl)}
+          </a>
+        </div>
+      </div>
+      ` : `
+      <div class="repolens-demo-card not-detected">
+        <div class="repolens-demo-header">
+          <div class="repolens-demo-status-wrap">
+            <span class="repolens-demo-status-indicator not-available"></span>
+            <span class="repolens-demo-status-text not-available">No Live Demo Detected</span>
           </div>
         </div>
-        <a href="${escapeHtml(primaryDemo)}" target="_blank" rel="noopener noreferrer" class="repolens-demo-btn">
-          Open Demo
-        </a>
+        <div class="repolens-demo-empty-notice">
+          <span>No public demo deployment was found in repository metadata or README.</span>
+        </div>
       </div>
-      ` : ''}
+      `}
 
+      <!-- Analysis Summary Grid -->
       <div class="repolens-analysis-summary-card">
+        <div class="repolens-summary-item">
+          <span class="repolens-summary-label">Project Type</span>
+          <span class="repolens-summary-val highlight">${escapeHtml(projectType)}</span>
+        </div>
         <div class="repolens-summary-item">
           <span class="repolens-summary-label">Framework</span>
           <span class="repolens-summary-val highlight">${escapeHtml(framework)}</span>
+        </div>
+        <div class="repolens-summary-item">
+          <span class="repolens-summary-label">Demo Status</span>
+          <span class="repolens-summary-val ${hasDemo ? 'demo-active' : 'demo-inactive'}">
+            ${hasDemo ? '● Available' : '○ Not Detected'}
+          </span>
         </div>
         <div class="repolens-summary-item">
           <span class="repolens-summary-label">Confidence</span>
@@ -191,11 +230,12 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
           <span class="repolens-summary-val">${escapeHtml(language)}</span>
         </div>
         <div class="repolens-summary-item">
-          <span class="repolens-summary-label">Stats</span>
+          <span class="repolens-summary-label">Repository Stats</span>
           <span class="repolens-summary-val">⭐ ${stars} &nbsp; 🍴 ${forks}</span>
         </div>
       </div>
 
+      <!-- Root Files Section -->
       <div class="repolens-files-section">
         <div class="repolens-section-title">
           <span>Root Files (${files.length})</span>
@@ -206,10 +246,13 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
         </div>
       </div>
 
+      <!-- Footer Callout -->
       <div class="repolens-info-callout">
-        <span class="repolens-info-icon">🚀</span>
+        <span class="repolens-info-icon">${hasDemo ? '🚀' : '💡'}</span>
         <p class="repolens-info-text">
-          Repository classified. ${primaryDemo ? 'Existing live deployment found!' : 'Ready for containerized preview sandbox.'}
+          ${hasDemo
+            ? `Active live demo identified at <strong>${escapeHtml(primaryDemoUrl || '')}</strong>.`
+            : 'No live demo detected. Containerized preview sandbox will be available in upcoming release.'}
         </p>
       </div>
     </div>
