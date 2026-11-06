@@ -40,9 +40,10 @@ export class AnalyzeService {
     try {
       // 2. Fetch Repository Metadata from GitHub API
       const metadata = await gitHubService.getRepositoryMetadata(owner, repo);
+      const targetBranch = validation.repo.branch || metadata.defaultBranch;
 
       // 3. Fetch Root Contents Listing from GitHub API
-      const rootItems = await gitHubService.getRootContents(owner, repo, metadata.defaultBranch);
+      const rootItems = await gitHubService.getRootContents(owner, repo, targetBranch);
       const rootFileNames = rootItems.map(item => item.name);
 
       // 4. Fetch Configuration Files (package.json, requirements.txt, pyproject.toml) and README if present
@@ -56,7 +57,7 @@ export class AnalyzeService {
 
       if (fileSet.has('package.json')) {
         fetchTasks.push(
-          gitHubService.getFileRawContent(owner, repo, 'package.json', metadata.defaultBranch).then(content => {
+          gitHubService.getFileRawContent(owner, repo, 'package.json', targetBranch).then(content => {
             packageJsonRaw = content;
           })
         );
@@ -64,13 +65,13 @@ export class AnalyzeService {
 
       if (fileSet.has('requirements.txt')) {
         fetchTasks.push(
-          gitHubService.getFileRawContent(owner, repo, 'requirements.txt', metadata.defaultBranch).then(content => {
+          gitHubService.getFileRawContent(owner, repo, 'requirements.txt', targetBranch).then(content => {
             pythonConfigRaw = content;
           })
         );
       } else if (fileSet.has('pyproject.toml')) {
         fetchTasks.push(
-          gitHubService.getFileRawContent(owner, repo, 'pyproject.toml', metadata.defaultBranch).then(content => {
+          gitHubService.getFileRawContent(owner, repo, 'pyproject.toml', targetBranch).then(content => {
             pythonConfigRaw = content;
           })
         );
@@ -78,7 +79,7 @@ export class AnalyzeService {
 
       // Fetch README content
       fetchTasks.push(
-        gitHubService.fetchReadmeContent(owner, repo, metadata.defaultBranch).then(content => {
+        gitHubService.fetchReadmeContent(owner, repo, targetBranch).then(content => {
           readmeContent = content;
         })
       );
@@ -88,6 +89,7 @@ export class AnalyzeService {
       // 5. Detect Project Type and Framework
       const detection = ProjectDetectorService.detect({
         rootFiles: rootFileNames,
+        allFiles: rootFileNames,
         packageJsonRaw,
         pythonConfigRaw,
         metadata,
@@ -106,7 +108,7 @@ export class AnalyzeService {
         repo: {
           owner,
           repo,
-          branch: metadata.defaultBranch,
+          branch: targetBranch,
         },
         repository: metadata,
         projectType: detection.projectType,

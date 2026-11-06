@@ -4,6 +4,14 @@ const fs = require('fs');
 
 const isWatch = process.argv.includes('--watch');
 
+// Parse --api-url=<url> if provided in CLI flags or environment variable
+const apiUrlArg = process.argv.find(a => a.startsWith('--api-url='));
+const apiUrl = apiUrlArg
+  ? apiUrlArg.split('=')[1]
+  : (process.env.REPOLENS_API_URL || 'http://localhost:3001');
+
+console.log(`[RepoLens Extension Build] Target Backend API URL: ${apiUrl}`);
+
 const distDir = path.join(__dirname, 'dist');
 if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir, { recursive: true });
@@ -21,6 +29,9 @@ const buildOptions = {
   format: 'esm',
   sourcemap: true,
   logLevel: 'info',
+  define: {
+    '__REPOLENS_API_URL__': JSON.stringify(apiUrl),
+  },
 };
 
 async function run() {

@@ -12,6 +12,7 @@ export interface ActiveCleanupEntry {
   containerId?: string;
   expiresAt: number; // Unix timestamp ms
   timer?: NodeJS.Timeout;
+  onExpire?: (previewId: string) => void;
 }
 
 export class PreviewCleanupService {
@@ -54,6 +55,7 @@ export class PreviewCleanupService {
       workspacePath,
       expiresAt,
       timer,
+      onExpire,
     });
   }
 
@@ -66,6 +68,13 @@ export class PreviewCleanupService {
 
     if (entry?.timer) {
       clearTimeout(entry.timer);
+    }
+    if (entry?.onExpire) {
+      try {
+        entry.onExpire(previewId);
+      } catch (err) {
+        console.warn(`[PreviewCleanup] Error in onExpire callback:`, err);
+      }
     }
     this.activeCleanups.delete(previewId);
 

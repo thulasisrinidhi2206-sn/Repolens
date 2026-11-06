@@ -38,6 +38,48 @@ export class DockerRuntimeService {
   }
 
   /**
+   * Cleans up orphaned preview containers from previous backend runs or unexpected shutdowns
+   */
+  public async cleanupOrphanedContainers(): Promise<number> {
+    const isReady = await this.isAvailable();
+    if (!isReady) return 0;
+
+    return new Promise((resolve) => {
+      execFile(
+        this.dockerCliPath,
+        ['ps', '-aq', '--filter', 'label=repolens.preview=true'],
+        { timeout: 8000 },
+        (error, stdout) => {
+          if (error || !stdout || stdout.trim().length === 0) {
+            return resolve(0);
+          }
+
+          const containerIds = stdout
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+          if (containerIds.length === 0) return resolve(0);
+
+          execFile(
+            this.dockerCliPath,
+            ['rm', '-f', ...containerIds],
+            { timeout: 15000 },
+            (rmErr) => {
+              if (rmErr) {
+                console.warn('[DockerRuntimeService] Warning during orphaned container cleanup:', rmErr.message);
+              } else {
+                console.log(`[DockerRuntimeService] Cleaned up ${containerIds.length} orphaned preview container(s).`);
+              }
+              resolve(containerIds.length);
+            }
+          );
+        }
+      );
+    });
+  }
+
+  /**
    * Finds an available ephemeral TCP port on localhost
    */
   public async findAvailablePort(minPort: number = 31000, maxPort: number = 39000): Promise<number> {

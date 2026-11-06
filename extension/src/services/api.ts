@@ -2,7 +2,13 @@
  * RepoLens - Extension Backend API Client
  */
 
-import { ApiResponse, AnalyzeRepoData, AnalyzeRepoRequest } from '@repolens/shared';
+import {
+  ApiResponse,
+  AnalyzeRepoData,
+  AnalyzeRepoRequest,
+  CreatePreviewData,
+  CreatePreviewRequest,
+} from '@repolens/shared';
 import { CONFIG } from '../config';
 
 export class ApiClient {
@@ -66,7 +72,7 @@ export class ApiClient {
           err.message.includes('ECONNREFUSED')
         ) {
           throw new Error(
-            `Cannot connect to RepoLens backend at ${this.baseUrl}. Please verify the server is running (\`npm run dev:backend\`).`
+            `Cannot connect to RepoLens backend at ${this.baseUrl}. Please verify the backend server is running and accessible.`
           );
         }
 
@@ -75,6 +81,92 @@ export class ApiClient {
 
       throw new Error('An unknown error occurred while communicating with the backend.');
     }
+  }
+
+  /**
+   * Sends repository URL to backend POST /api/preview to spin up isolated container preview
+   */
+  public async createPreview(repositoryUrl: string): Promise<ApiResponse<CreatePreviewData>> {
+    const endpoint = `${this.baseUrl}/api/preview`;
+    const payload: CreatePreviewRequest = { repositoryUrl };
+
+    const controller = new AbortController();
+    // Allow up to 120s for containerized builds
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      let data: ApiResponse<CreatePreviewData>;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(`Server returned non-JSON response (HTTP ${response.status})`);
+      }
+
+      if (!response.ok || data.success === false) {
+        const errorMsg = data?.error || `Preview request failed with status ${response.status}`;
+        throw new Error(errorMsg);
+      }
+
+      return data;
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          throw new Error('Preview creation timed out (120s). Container build required more time than expected.');
+        }
+
+        if (
+          err.message.includes('Failed to fetch') ||
+          err.message.includes('fetch failed') ||
+          err.message.includes('NetworkError') ||
+          err.message.includes('ECONNREFUSED')
+        ) {
+          throw new Error(`Cannot connect to RepoLens backend at ${this.baseUrl}.`);
+        }
+
+        throw err;
+      }
+
+      throw new Error('An unknown error occurred while creating preview.');
+    }
+  }
+
+  /**
+   * Polls preview status GET /api/preview/:previewId
+   */
+  public async getPreview(previewId: string): Promise<ApiResponse<CreatePreviewData>> {
+    const endpoint = `${this.baseUrl}/api/preview/${encodeURIComponent(previewId)}`;
+    const response = await fetch(endpoint, {
+      headers: { 'Accept': 'application/json' },
+    });
+    const data: ApiResponse<CreatePreviewData> = await response.json();
+    return data;
+  }
+
+  /**
+   * Stops preview session DELETE /api/preview/:previewId
+   */
+  public async stopPreview(previewId: string): Promise<ApiResponse<CreatePreviewData>> {
+    const endpoint = `${this.baseUrl}/api/preview/${encodeURIComponent(previewId)}`;
+    const response = await fetch(endpoint, {
+      method: 'DELETE',
+      headers: { 'Accept': 'application/json' },
+    });
+    const data: ApiResponse<CreatePreviewData> = await response.json();
+    return data;
   }
 
   /**

@@ -143,10 +143,15 @@ export class GitHubUrlValidatorService {
       };
     }
 
-    // Optional branch or commit if URL points to a subpath like /tree/:branch
+    // Optional branch or commit if URL points to a subpath like /tree/:branch or /tree/feature/auth
     let branch: string | undefined;
     if (rest.length >= 2 && rest[0] === 'tree') {
-      branch = rest[1];
+      const rawBranchPath = rest.slice(1).join('/');
+      try {
+        branch = decodeURIComponent(rawBranchPath);
+      } catch {
+        branch = rawBranchPath;
+      }
     }
 
     const repo: RepoIdentifier = {

@@ -7,6 +7,7 @@ import { ProjectType, RepositoryMetadata, RepositoryAnalysisResult } from '@repo
 
 export interface DetectionContext {
   rootFiles: string[];
+  allFiles?: string[];
   packageJsonRaw?: string | null;
   pythonConfigRaw?: string | null;
   metadata?: RepositoryMetadata;
@@ -41,16 +42,23 @@ export class ProjectDetectorService {
       }
     }
 
-    const allDeps = {
+    const allDeps: Record<string, string> = {
       ...(pkg?.dependencies || {}),
       ...(pkg?.devDependencies || {}),
+      ...(pkg?.peerDependencies || {}),
+      ...(pkg?.optionalDependencies || {}),
     };
 
     // Check for config files
     const hasNextConfig = fileSet.has('next.config.js') || fileSet.has('next.config.mjs') || fileSet.has('next.config.ts');
     if (hasNextConfig) detectedConfigs.push('next.config');
 
-    const hasViteConfig = fileSet.has('vite.config.js') || fileSet.has('vite.config.ts') || fileSet.has('vite.config.mjs') || fileSet.has('vite.config.cjs');
+    const hasViteConfig =
+      fileSet.has('vite.config.js') ||
+      fileSet.has('vite.config.ts') ||
+      fileSet.has('vite.config.mjs') ||
+      fileSet.has('vite.config.cjs') ||
+      Boolean(context.allFiles && context.allFiles.some(f => /(^|\/)vite\.config\.(js|ts|mjs|cjs)$/i.test(f)));
     if (hasViteConfig) detectedConfigs.push('vite.config');
 
     const hasWebpackConfig = fileSet.has('webpack.config.js') || fileSet.has('webpack.config.ts');
@@ -94,19 +102,38 @@ export class ProjectDetectorService {
     }
 
     // -------------------------------------------------------------
-    // 2. Vite Detection
+    // 2. Vite Detection (Checked before general React, Node.js, and Static HTML)
     // -------------------------------------------------------------
-    if ('vite' in allDeps || hasViteConfig) {
-      const isReact = 'react' in allDeps || 'react-dom' in allDeps;
-      const isVue = 'vue' in allDeps;
-      const isSvelte = 'svelte' in allDeps;
+    const hasViteDep =
+      'vite' in allDeps ||
+      Object.keys(allDeps).some(d => d === 'vite' || d.startsWith('@vitejs/') || d.includes('vite-plugin') || d.includes('vite')) ||
+      Boolean(pkg?.name && (pkg.name.includes('vite') || pkg.name.startsWith('@vitejs/'))) ||
+      Boolean(metadata?.name && (metadata.name.toLowerCase().includes('vite-plugin') || metadata.name.toLowerCase().startsWith('vite-')));
+
+    const hasViteScript = Boolean(
+      pkg?.scripts &&
+      Object.values(pkg.scripts).some((s: any) => typeof s === 'string' && (s.includes('vite') || s.includes('vitest')))
+    );
+
+    const hasViteKeyword = Array.isArray(pkg?.keywords) && pkg.keywords.some((k: any) => typeof k === 'string' && k.toLowerCase().includes('vite'));
+
+    if (hasViteDep || hasViteConfig || hasViteScript || hasViteKeyword) {
+      const isReact =
+        'react' in allDeps ||
+        'react-dom' in allDeps ||
+        Boolean(pkg?.name && pkg.name.includes('react')) ||
+        Object.keys(allDeps).some(d => d.includes('react')) ||
+        Boolean(metadata?.name && metadata.name.toLowerCase().includes('react')) ||
+        (Array.isArray(pkg?.keywords) && pkg.keywords.some((k: any) => typeof k === 'string' && k.toLowerCase().includes('react')));
+      const isVue = 'vue' in allDeps || Boolean(pkg?.name && pkg.name.includes('vue'));
+      const isSvelte = 'svelte' in allDeps || Boolean(pkg?.name && pkg.name.includes('svelte'));
 
       let framework = 'Vite';
       if (isReact) framework = 'React (Vite)';
       else if (isVue) framework = 'Vue (Vite)';
       else if (isSvelte) framework = 'Svelte (Vite)';
 
-      const confidence = ('vite' in allDeps && hasViteConfig) ? 1.0 : 0.95;
+      const confidence = (hasViteDep && hasViteConfig) ? 1.0 : 0.95;
       return {
         projectType: 'Vite',
         framework,

@@ -4,6 +4,7 @@
  */
 
 import { DemoUrlCandidate, DemoDetectionResult, DemoSource, RepositoryMetadata } from '@repolens/shared';
+import { SsrfProtectionService } from './ssrf-protection.service';
 
 export interface DemoDetectionContext {
   metadata?: RepositoryMetadata;
@@ -277,32 +278,58 @@ export class DemoDetectorService {
 
   /**
    * Safely checks reachability of candidates via lightweight HTTP HEAD/GET
+   * Protected with SSRF prevention, private IP blocking, safe redirect resolution, and bounded concurrency.
    */
   private async validateCandidates(candidates: DemoUrlCandidate[]): Promise<DemoUrlCandidate[]> {
-    const validationPromises = candidates.map(async (candidate) => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+    const validatedResults: DemoUrlCandidate[] = [];
+    const concurrencyLimit = 3;
 
-        let response: Response;
+    // Process in controlled batches to prevent unbounded concurrent outbound connections
+    for (let i = 0; i < candidates.length; i += concurrencyLimit) {
+      const batch = candidates.slice(i, i + concurrencyLimit);
+      const batchPromises = batch.map(async (candidate): Promise<DemoUrlCandidate> => {
         try {
-          // Attempt HEAD first
-          response = await fetch(candidate.url, {
+          // Attempt safe HEAD request first
+          let fetchResult = await SsrfProtectionService.safeFetch(candidate.url, {
             method: 'HEAD',
-            headers: { 'User-Agent': 'RepoLens-Demo-Validator/1.0' },
-            signal: controller.signal,
-          });
+            timeoutMs: 3500,
+            maxRedirects: 3,
+          }).catch(() => null);
 
-          // Some platforms return 405 Method Not Allowed on HEAD; fallback to GET
-          if (response.status === 405) {
-            response = await fetch(candidate.url, {
+          // Some platforms return 405 Method Not Allowed on HEAD; fallback to safe GET with 32KB payload limit
+          if (fetchResult && fetchResult.status === 405) {
+            fetchResult = await SsrfProtectionService.safeFetch(candidate.url, {
               method: 'GET',
-              headers: { 'User-Agent': 'RepoLens-Demo-Validator/1.0' },
-              signal: controller.signal,
-            });
+              timeoutMs: 3500,
+              maxSizeBytes: 32 * 1024,
+              maxRedirects: 3,
+            }).catch(() => null);
           }
-        } catch (_fetchErr) {
-          clearTimeout(timeoutId);
+
+          if (!fetchResult) {
+            return {
+              ...candidate,
+              isValidated: true,
+              isReachable: false,
+              statusCode: 0,
+            };
+          }
+
+          const isReachable = fetchResult.ok;
+          const statusCode = fetchResult.status;
+
+          return {
+            ...candidate,
+            url: fetchResult.finalUrl || candidate.url,
+            isValidated: true,
+            isReachable,
+            statusCode,
+            // Slightly boost confidence if verified live
+            confidence: isReachable
+              ? Math.min(1.0, candidate.confidence + 0.05)
+              : Math.max(0.2, candidate.confidence - 0.2),
+          };
+        } catch (_err) {
           return {
             ...candidate,
             isValidated: true,
@@ -310,29 +337,13 @@ export class DemoDetectorService {
             statusCode: 0,
           };
         }
+      });
 
-        clearTimeout(timeoutId);
-        const isReachable = response.status >= 200 && response.status < 400;
+      const batchResults = await Promise.all(batchPromises);
+      validatedResults.push(...batchResults);
+    }
 
-        return {
-          ...candidate,
-          isValidated: true,
-          isReachable,
-          statusCode: response.status,
-          // Slightly boost confidence if verified live
-          confidence: isReachable ? Math.min(1.0, candidate.confidence + 0.05) : Math.max(0.2, candidate.confidence - 0.2),
-        };
-      } catch (_err) {
-        return {
-          ...candidate,
-          isValidated: true,
-          isReachable: false,
-          statusCode: 0,
-        };
-      }
-    });
-
-    return Promise.all(validationPromises);
+    return validatedResults;
   }
 
   /**
@@ -399,6 +410,19 @@ export class DemoDetectorService {
       const hostname = parsed.hostname.toLowerCase();
 
       if (BLOCKED_DOMAINS.has(hostname)) return true;
+
+      // Block localhost, link-local, internal domains and cloud metadata
+      if (
+        hostname === 'localhost' ||
+        hostname.endsWith('.localhost') ||
+        hostname.endsWith('.local') ||
+        hostname.endsWith('.internal') ||
+        hostname === '169.254.169.254' ||
+        hostname === 'metadata.google.internal' ||
+        SsrfProtectionService.isPrivateIp(hostname)
+      ) {
+        return true;
+      }
 
       for (const blocked of BLOCKED_DOMAINS) {
         if (hostname.endsWith(`.${blocked}`)) {

@@ -55,9 +55,11 @@ export class PreviewService {
 
     // 2. Fetch Repository Metadata
     let metadata;
+    let targetBranch: string;
     try {
       metadata = await gitHubService.getRepositoryMetadata(owner, repo);
-      repoIdentifier.branch = metadata.defaultBranch;
+      targetBranch = validation.repo.branch || metadata.defaultBranch;
+      repoIdentifier.branch = targetBranch;
     } catch (err: unknown) {
       if (err instanceof GitHubApiError) {
         return {
@@ -78,18 +80,31 @@ export class PreviewService {
     // 3. Fetch Root & Recursive Git Tree from GitHub API
     let treeItems: { path: string; mode: string; type: 'blob' | 'tree'; sha: string; size?: number }[] = [];
     try {
-      treeItems = await gitHubService.getGitTree(owner, repo, metadata.defaultBranch, true);
+      treeItems = await gitHubService.getGitTree(owner, repo, targetBranch, true);
     } catch (err: unknown) {
       console.warn(`[PreviewService] Recursive tree fetch failed, falling back to root contents:`, err);
     }
 
-    const rootItems = await gitHubService.getRootContents(owner, repo, metadata.defaultBranch);
+    const rootItems = await gitHubService.getRootContents(owner, repo, targetBranch);
     const rootFileNames = rootItems.map(i => i.name);
     const allFilePaths = treeItems.length > 0 ? treeItems.map(i => i.path) : rootFileNames;
 
-    // 4. Inspect Project Type & Framework
+    // Fetch package.json if present at repository root
+    let packageJsonRaw: string | null = null;
+    const rootFileSet = new Set(rootFileNames.map(f => f.toLowerCase()));
+    if (rootFileSet.has('package.json')) {
+      try {
+        packageJsonRaw = await gitHubService.getFileRawContent(owner, repo, 'package.json', targetBranch);
+      } catch (err: unknown) {
+        console.warn(`[PreviewService] Could not fetch package.json for ${owner}/${repo}:`, err);
+      }
+    }
+
+    // 4. Inspect Project Type & Framework (Detecting Vite before Node.js fallback)
     const projectDetection = ProjectDetectorService.detect({
       rootFiles: rootFileNames,
+      allFiles: allFilePaths,
+      packageJsonRaw,
       metadata,
     });
 
@@ -99,6 +114,7 @@ export class PreviewService {
       framework: projectDetection.framework,
       rootFiles: rootFileNames,
       allFiles: allFilePaths,
+      packageJsonRaw,
     });
 
     if (!eligibility.isEligible) {

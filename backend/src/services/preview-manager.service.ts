@@ -41,10 +41,23 @@ export class PreviewManagerService {
   }
 
   /**
-   * Retrieves an active preview session by ID
+   * Retrieves a preview session by ID and transitions expired sessions to stopped
    */
   public getSession(previewId: string): ProjectPreview | undefined {
-    return this.sessions.get(previewId);
+    const session = this.sessions.get(previewId);
+    if (!session) return undefined;
+
+    // Prevent expired sessions from returning as ready or active
+    if (session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now()) {
+      if (session.status !== 'stopped' && session.status !== 'failed') {
+        session.status = 'stopped';
+        session.updatedAt = new Date().toISOString();
+        if (!session.logs) session.logs = [];
+        session.logs.push(`[${session.updatedAt}] Preview session expired and marked as stopped.`);
+      }
+    }
+
+    return session;
   }
 
   /**
