@@ -104,18 +104,36 @@ export class VitePreviewHandler implements IPreviewHandler {
    */
   public async prepareWorkspace(context: PreviewContext): Promise<void> {
     const { repo, metadata, workspacePath, allFilePaths } = context;
+    const targetBranch = repo.branch || metadata.defaultBranch;
 
     // 1. Filter safe source and configuration files
     const safePaths = this.filterSafeViteFiles(allFilePaths);
 
+    // Limit maximum files processed to avoid resource exhaustion
+    const MAX_FILES = 500;
+    const pathsToDownload = safePaths.slice(0, MAX_FILES);
+
+    const MAX_WORKSPACE_BYTES = 50 * 1024 * 1024; // 50MB
+    const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5MB
+    let totalDownloadedBytes = 0;
+
     // 2. Concurrently download files in batches
     const batchSize = 8;
-    for (let i = 0; i < safePaths.length; i += batchSize) {
-      const batch = safePaths.slice(i, i + batchSize);
+    for (let i = 0; i < pathsToDownload.length; i += batchSize) {
+      const batch = pathsToDownload.slice(i, i + batchSize);
       await Promise.all(
         batch.map(async (relPath) => {
-          const fileBuf = await gitHubService.getFileBuffer(repo.owner, repo.repo, relPath, metadata.defaultBranch);
+          if (totalDownloadedBytes > MAX_WORKSPACE_BYTES) {
+            throw new Error(`Repository workspace exceeded total download limit of 50MB.`);
+          }
+
+          const fileBuf = await gitHubService.getFileBuffer(repo.owner, repo.repo, relPath, targetBranch, MAX_FILE_BYTES);
           if (fileBuf) {
+            totalDownloadedBytes += fileBuf.length;
+            if (totalDownloadedBytes > MAX_WORKSPACE_BYTES) {
+              throw new Error(`Repository workspace exceeded total download limit of 50MB.`);
+            }
+
             const targetFilePath = path.join(workspacePath, relPath);
             const normalizedTarget = path.resolve(targetFilePath);
 

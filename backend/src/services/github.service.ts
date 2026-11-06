@@ -3,7 +3,14 @@
  * Isolated module handling all GitHub API communication with structured error handling
  */
 
+import path from 'path';
+import dotenv from 'dotenv';
 import { RepositoryMetadata } from '@repolens/shared';
+
+// Ensure environment configuration is loaded regardless of import order
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config();
 
 export type GitHubErrorType =
   | 'NOT_FOUND'
@@ -38,46 +45,67 @@ export interface GitHubContentItem {
 
 export class GitHubService {
   private readonly baseUrl: string;
-  private readonly token?: string;
+  private readonly explicitToken?: string;
 
   constructor(baseUrl: string = 'https://api.github.com', token?: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
-    this.token = token || process.env.GITHUB_TOKEN;
+    this.explicitToken = token;
+  }
+
+  /**
+   * Dynamically resolves the active GitHub token from explicit config or environment variables
+   */
+  public get token(): string | undefined {
+    return this.explicitToken || process.env.GITHUB_TOKEN;
   }
 
   /**
    * Helper to perform GitHub API requests with rate limit and error handling
    */
-  private async request<T>(endpoint: string): Promise<T> {
+  private async request<T>(endpoint: string, timeoutMs: number = 10000): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const headers: Record<string, string> = {
       'Accept': 'application/vnd.github.v3+json',
       'User-Agent': 'RepoLens-Platform/1.0',
     };
 
-    if (this.token && this.token.trim().length > 0) {
-      headers['Authorization'] = `Bearer ${this.token.trim()}`;
+    const activeToken = this.token;
+    if (activeToken && activeToken.trim().length > 0) {
+      headers['Authorization'] = `Bearer ${activeToken.trim()}`;
     }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     let response: Response;
     try {
-      response = await fetch(url, { headers });
+      response = await fetch(url, { headers, signal: controller.signal });
     } catch (networkErr: unknown) {
+      clearTimeout(timeoutId);
+      if (networkErr instanceof Error && networkErr.name === 'AbortError') {
+        throw new GitHubApiError(
+          `GitHub API request timed out (${timeoutMs / 1000}s) for endpoint: ${endpoint}`,
+          'API_FAILURE',
+          504
+        );
+      }
       const msg = networkErr instanceof Error ? networkErr.message : String(networkErr);
       throw new GitHubApiError(
         `Failed to reach GitHub API: ${msg}`,
         'API_FAILURE',
         503
       );
+    } finally {
+      clearTimeout(timeoutId);
     }
 
-    // Handle Rate Limiting
+    // Handle Rate Limiting (Primary and Secondary)
     const rateLimitRemaining = response.headers.get('x-ratelimit-remaining');
-    if (response.status === 403 && rateLimitRemaining === '0') {
+    if ((response.status === 403 || response.status === 429) && (rateLimitRemaining === '0' || response.headers.has('retry-after'))) {
       const resetTimestamp = response.headers.get('x-ratelimit-reset');
       const resetTime = resetTimestamp ? new Date(parseInt(resetTimestamp, 10) * 1000).toLocaleTimeString() : 'soon';
       throw new GitHubApiError(
-        `GitHub API rate limit exceeded. Limit resets at ${resetTime}. Please try again later or configure a GITHUB_TOKEN.`,
+        `GitHub API rate limit exceeded. Limit resets at ${resetTime}. Please configure a GITHUB_TOKEN in backend/.env to increase rate limits to 5,000 req/hr.`,
         'RATE_LIMIT',
         429
       );
@@ -179,7 +207,7 @@ export class GitHubService {
 
   /**
    * Fetches the decoded string content of a specific file in the repository (e.g. package.json)
-   * Returns null if file does not exist.
+   * Returns null if file does not exist (404), but re-throws rate limit or network failures.
    */
   public async getFileRawContent(owner: string, repo: string, path: string, ref?: string): Promise<string | null> {
     try {
@@ -197,12 +225,13 @@ export class GitHubService {
       if (err instanceof GitHubApiError && err.statusCode === 404) {
         return null;
       }
-      return null;
+      throw err;
     }
   }
 
   /**
    * Fetches the repository README content if present
+   * Returns null if file does not exist (404), but re-throws rate limit or network failures.
    */
   public async fetchReadmeContent(owner: string, repo: string, ref?: string): Promise<string | null> {
     try {
@@ -220,7 +249,7 @@ export class GitHubService {
       if (err instanceof GitHubApiError && err.statusCode === 404) {
         return null;
       }
-      return null;
+      throw err;
     }
   }
 
@@ -260,24 +289,58 @@ export class GitHubService {
 
   /**
    * Fetches file content as Buffer (supports binary assets like images, fonts, etc.)
+   * Enforces maxBytes limit per file and timeouts to protect memory and resources.
    */
-  public async getFileBuffer(owner: string, repo: string, path: string, ref?: string): Promise<Buffer | null> {
+  public async getFileBuffer(
+    owner: string,
+    repo: string,
+    path: string,
+    ref?: string,
+    maxBytes: number = 5 * 1024 * 1024
+  ): Promise<Buffer | null> {
     try {
       const query = ref ? `?ref=${encodeURIComponent(ref)}` : '';
       const data: any = await this.request(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}${query}`
       );
 
+      if (data && typeof data.size === 'number' && data.size > maxBytes) {
+        throw new Error(`File '${path}' exceeds maximum size limit of ${Math.round(maxBytes / (1024 * 1024))}MB.`);
+      }
+
       if (data && data.content && data.encoding === 'base64') {
-        return Buffer.from(data.content, 'base64');
+        const buf = Buffer.from(data.content, 'base64');
+        if (buf.length > maxBytes) {
+          throw new Error(`File '${path}' exceeds maximum size limit of ${Math.round(maxBytes / (1024 * 1024))}MB.`);
+        }
+        return buf;
       }
 
       // If download_url is available for larger files
       if (data && data.download_url) {
-        const downloadRes = await fetch(data.download_url);
-        if (downloadRes.ok) {
-          const arrayBuf = await downloadRes.arrayBuffer();
-          return Buffer.from(arrayBuf);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+        try {
+          const downloadRes = await fetch(data.download_url, { signal: controller.signal });
+          clearTimeout(timeoutId);
+
+          if (downloadRes.ok) {
+            const contentLength = downloadRes.headers.get('content-length');
+            if (contentLength && parseInt(contentLength, 10) > maxBytes) {
+              throw new Error(`File '${path}' exceeds maximum size limit of ${Math.round(maxBytes / (1024 * 1024))}MB.`);
+            }
+
+            const arrayBuf = await downloadRes.arrayBuffer();
+            if (arrayBuf.byteLength > maxBytes) {
+              throw new Error(`File '${path}' exceeds maximum size limit of ${Math.round(maxBytes / (1024 * 1024))}MB.`);
+            }
+
+            return Buffer.from(arrayBuf);
+          }
+        } catch (downloadErr) {
+          clearTimeout(timeoutId);
+          throw downloadErr;
         }
       }
 
@@ -286,7 +349,7 @@ export class GitHubService {
       if (err instanceof GitHubApiError && err.statusCode === 404) {
         return null;
       }
-      return null;
+      throw err;
     }
   }
 }

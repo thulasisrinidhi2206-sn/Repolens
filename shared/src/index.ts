@@ -135,6 +135,141 @@ export interface DemoDetectionResult {
 }
 
 /**
+ * Severity level for code review, security, and quality findings
+ */
+export type FindingSeverity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Info';
+
+/**
+ * Detailed code deduction entry explaining why points were deducted
+ */
+export interface ScoreDeduction {
+  reason: string;
+  points: number;
+}
+
+/**
+ * Individual category score breakdown for code quality scoring
+ */
+export interface ScoreCategory {
+  name: string;
+  score: number; // 0 to 100
+  weight: number; // e.g. 0.20 (20%)
+  deductions: ScoreDeduction[];
+}
+
+/**
+ * Transparent repository quality score metrics
+ */
+export interface QualityScoreMetrics {
+  overallScore: number; // 0 to 100
+  grade: 'A+' | 'A' | 'B' | 'C' | 'D' | 'F';
+  categories: {
+    codeOrganization: ScoreCategory;
+    maintainability: ScoreCategory;
+    documentation: ScoreCategory;
+    testCoverage: ScoreCategory;
+    dependencyHealth: ScoreCategory;
+    security: ScoreCategory;
+  };
+  methodology: string;
+  summary: string;
+  keyStrengths: string[];
+  keyImprovements: string[];
+}
+
+/**
+ * Security scanner finding
+ */
+export interface SecurityFinding {
+  id: string;
+  title: string;
+  severity: FindingSeverity;
+  category: 'secret_exposure' | 'unsafe_config' | 'dependency_vulnerability' | 'injection_risk' | 'file_permission';
+  description: string;
+  file?: string;
+  line?: number;
+  recommendation: string;
+  isConfirmed: boolean; // Distinguishes confirmed issues from heuristic warnings
+}
+
+/**
+ * Dependency item descriptor
+ */
+export interface DependencyItem {
+  name: string;
+  currentVersion: string;
+  type: 'dependency' | 'devDependency' | 'peerDependency';
+  isOutdated?: boolean;
+  isVulnerable?: boolean;
+  vulnerabilityCount?: number;
+  advisories?: string[];
+  recommendation?: string;
+}
+
+/**
+ * Project architecture component / module
+ */
+export interface ArchitectureModule {
+  name: string;
+  path: string;
+  role: string;
+  fileCount: number;
+  technologies?: string[];
+}
+
+/**
+ * Project architecture visualization info
+ */
+export interface ProjectArchitectureInfo {
+  majorModules: ArchitectureModule[];
+  configFiles: string[];
+  entryPoints: string[];
+  totalFilesCount: number;
+  totalDirectoriesCount: number;
+  mermaidDiagram?: string;
+}
+
+/**
+ * Code review finding item
+ */
+export interface CodeReviewFinding {
+  id: string;
+  title: string;
+  severity: FindingSeverity;
+  file: string;
+  line?: number;
+  category: 'bug' | 'code_smell' | 'maintainability' | 'security' | 'performance';
+  explanation: string;
+  codeSnippet?: string;
+  suggestedFix?: string;
+  source: 'ai' | 'static_analyzer';
+}
+
+/**
+ * AI Code Review report summary
+ */
+export interface CodeReviewReport {
+  isAiPowered: boolean;
+  engine: string;
+  summary: string;
+  findings: CodeReviewFinding[];
+}
+
+/**
+ * Project evaluation score metrics (legacy & modern compatibility)
+ */
+export interface EvaluationMetrics {
+  codeQualityScore?: number;
+  documentationScore?: number;
+  maintainabilityScore?: number;
+  securityScore?: number;
+  overallScore?: number;
+  summary?: string;
+  insights?: string[];
+  qualityScore?: QualityScoreMetrics;
+}
+
+/**
  * Structured repository analysis result
  */
 export interface RepositoryAnalysisResult {
@@ -160,38 +295,6 @@ export interface RepositoryAnalysisResult {
 }
 
 /**
- * Project evaluation score metrics
- */
-export interface EvaluationMetrics {
-  codeQualityScore?: number;
-  documentationScore?: number;
-  maintainabilityScore?: number;
-  securityScore?: number;
-  overallScore?: number;
-  summary?: string;
-  insights?: string[];
-}
-
-/**
- * Project evaluation report descriptor
- */
-export interface ProjectEvaluation {
-  id: string;
-  repo: RepoIdentifier;
-  status: EvaluationStatus;
-  metrics?: EvaluationMetrics;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
- * Request payload for POST /api/analyze
- */
-export interface AnalyzeRepoRequest {
-  repositoryUrl: string;
-}
-
-/**
  * Result payload returned from POST /api/analyze
  */
 export interface AnalyzeRepoData extends RepositoryAnalysisResult {
@@ -201,6 +304,30 @@ export interface AnalyzeRepoData extends RepositoryAnalysisResult {
   repositoryUrl: string;
   receivedAt: string;
   message: string;
+  metrics?: EvaluationMetrics;
+  security?: {
+    score: number;
+    findings: SecurityFinding[];
+    exposedSecretsCount: number;
+  };
+  dependencies?: {
+    totalCount: number;
+    list: DependencyItem[];
+    vulnerableCount: number;
+    outdatedCount: number;
+  };
+  architecture?: ProjectArchitectureInfo;
+  codeReview?: CodeReviewReport;
+  analysisDurationMs?: number;
+  filesAnalyzedCount?: number;
+  filesSkippedCount?: number;
+}
+
+/**
+ * Request payload for POST /api/analyze
+ */
+export interface AnalyzeRepoRequest {
+  repositoryUrl: string;
 }
 
 /**

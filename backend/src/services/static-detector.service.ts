@@ -11,6 +11,7 @@ export interface StaticProjectDetectionContext {
   framework?: string;
   rootFiles: string[];
   allFiles?: string[];
+  packageJsonRaw?: string | null;
 }
 
 export const ALLOWED_STATIC_EXTENSIONS = new Set([
@@ -65,22 +66,55 @@ export class StaticDetectorService {
    * Evaluates if repository is eligible for isolated preview (Static or Vite)
    */
   public static evaluateEligibility(context: StaticProjectDetectionContext): StaticPreviewEligibility {
-    const { projectType, framework = '', rootFiles, allFiles = rootFiles } = context;
+    const { projectType, framework = '', rootFiles, allFiles = rootFiles, packageJsonRaw } = context;
 
     const lowerRoot = rootFiles.map(f => f.toLowerCase());
     const lowerAll = allFiles.map(f => f.toLowerCase());
 
-    // 1. Check for Vite / React-Vite Project
-    const hasViteConfig = lowerRoot.some(f =>
-      f === 'vite.config.js' || f === 'vite.config.ts' || f === 'vite.config.mjs' || f === 'vite.config.cjs'
-    );
+    // 1. Check for Vite / React-Vite Project from package.json, config, or detector classification
+    let hasViteInPackageJson = false;
+    if (packageJsonRaw) {
+      try {
+        const pkg = JSON.parse(packageJsonRaw);
+        const allDeps = {
+          ...(pkg.dependencies || {}),
+          ...(pkg.devDependencies || {}),
+          ...(pkg.peerDependencies || {}),
+          ...(pkg.optionalDependencies || {}),
+        };
+        const depKeys = Object.keys(allDeps);
+        const hasViteDep = depKeys.some(d => d === 'vite' || d.startsWith('@vitejs/') || d.includes('vite-plugin') || d.includes('vite'));
+        const hasViteScript = Boolean(
+          pkg.scripts &&
+          Object.values(pkg.scripts).some((s: any) => typeof s === 'string' && (s.includes('vite') || s.includes('vitest')))
+        );
+        const hasViteName = Boolean(pkg.name && (pkg.name.includes('vite') || pkg.name.startsWith('@vitejs/')));
+        const hasViteKeyword = Array.isArray(pkg.keywords) && pkg.keywords.some((k: any) => typeof k === 'string' && k.toLowerCase().includes('vite'));
+
+        if (hasViteDep || hasViteScript || hasViteName || hasViteKeyword) {
+          hasViteInPackageJson = true;
+        }
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+
+    const hasViteConfig =
+      lowerRoot.some(f =>
+        f === 'vite.config.js' || f === 'vite.config.ts' || f === 'vite.config.mjs' || f === 'vite.config.cjs'
+      ) ||
+      lowerAll.some(f =>
+        /(^|\/)vite\.config\.(js|ts|mjs|cjs)$/i.test(f)
+      );
+
     const isViteProject =
       projectType === 'Vite' ||
       framework.toLowerCase().includes('vite') ||
-      hasViteConfig;
+      hasViteConfig ||
+      hasViteInPackageJson;
 
     if (isViteProject) {
-      const hasPackageJson = lowerRoot.includes('package.json');
+      const hasPackageJson = lowerRoot.includes('package.json') || Boolean(packageJsonRaw);
       if (!hasPackageJson) {
         return {
           isEligible: false,

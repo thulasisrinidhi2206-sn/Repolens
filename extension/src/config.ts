@@ -3,17 +3,22 @@
  * Single source of truth for backend endpoints and extension settings
  */
 
+declare const __REPOLENS_API_URL__: string | undefined;
+
 export const CONFIG = {
   /**
    * RepoLens Backend API Base URL
-   * Change this single value to point to a different host or staging/production backend.
+   * Injected at build time via esbuild define or defaults to localhost:3001
    */
-  API_BASE_URL: 'http://localhost:3001',
+  API_BASE_URL:
+    typeof __REPOLENS_API_URL__ !== 'undefined' && __REPOLENS_API_URL__
+      ? __REPOLENS_API_URL__
+      : 'http://localhost:3001',
 
   /**
    * Request timeout in milliseconds
    */
-  REQUEST_TIMEOUT_MS: 10000,
+  REQUEST_TIMEOUT_MS: 15000,
 } as const;
 
 export type Config = typeof CONFIG;
