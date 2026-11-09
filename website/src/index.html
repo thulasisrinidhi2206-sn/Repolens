@@ -125,6 +125,27 @@
         <a class="scroll-cue" href="#features" aria-label="Scroll to features"><span></span></a>
       </section>
 
+
+      <section class="section try-section" id="try-repolens">
+        <div class="shell try-shell">
+          <div class="section-heading centered reveal">
+            <span class="section-kicker">LIVE REPOSITORY ANALYSIS</span>
+            <h2>Try RepoLens on <span class="gradient-text">any public repo.</span></h2>
+            <p>Paste a GitHub repository URL and get a real analysis from the RepoLens backend.</p>
+          </div>
+          <form class="analyzer-card reveal" id="repo-analyzer-form">
+            <label for="repository-url">GitHub repository URL</label>
+            <div class="analyzer-input-row">
+              <input id="repository-url" name="repositoryUrl" type="url" placeholder="https://github.com/facebook/react" autocomplete="url" required>
+              <button class="button button-primary" id="analyze-button" type="submit">Analyze repository <span aria-hidden="true">→</span></button>
+            </div>
+            <p class="analyzer-hint">Public GitHub repositories only. Example: facebook/react or microsoft/vscode.</p>
+            <p class="analyzer-status" id="analyzer-status" role="status" aria-live="polite"></p>
+          </form>
+          <div class="analysis-results" id="analysis-results" aria-live="polite" hidden></div>
+        </div>
+      </section>
+
       <section class="trust-strip" aria-label="Product attributes">
         <div class="shell trust-inner">
           <span>ONE VIEW FOR THE SIGNALS THAT MATTER</span>
