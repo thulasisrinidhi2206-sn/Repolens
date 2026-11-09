@@ -202,6 +202,22 @@ The backend API will start at `http://localhost:3001`. Verify it by visiting `ht
 4. Select the `extension/` directory from the RepoLens root.
 5. Navigate to any GitHub repository (e.g. `https://github.com/facebook/react`) to see the **RepoLens** button in the repository header.
 
+### Run the standalone landing page
+
+The static landing page is in `website/` and does not depend on the backend, extension, or a production localhost URL. From the repository root:
+
+```bash
+npm run dev:website
+```
+
+Open the printed local development URL (default `http://127.0.0.1:4173`). To build the deployable static site:
+
+```bash
+npm run build:website
+```
+
+Publish `website/dist/` as the site root on a static host. The site has no runtime package dependencies. The dashboard illustrations are explicitly labeled and do not represent a live analysis or product screenshot.
+
 ---
 
 ## 🧪 Running Automated Tests

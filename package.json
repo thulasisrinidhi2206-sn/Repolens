@@ -9,13 +9,15 @@
     "shared"
   ],
   "scripts": {
-    "build": "npm run build:shared && npm run build:backend && npm run build:extension",
+    "build": "npm run build:shared && npm run build:backend && npm run build:extension && npm run build:website",
     "build:shared": "npm run build --workspace=@repolens/shared",
     "build:backend": "npm run build --workspace=@repolens/backend",
     "build:extension": "npm run build --workspace=@repolens/extension",
+    "build:website": "npm run build --prefix website",
     "test": "npm run test:backend",
     "test:backend": "npm run test --workspace=@repolens/backend",
     "dev:backend": "npm run dev --workspace=@repolens/backend",
+    "dev:website": "npm run dev --prefix website",
     "start:backend": "npm run start --workspace=@repolens/backend"
   },
   "keywords": [

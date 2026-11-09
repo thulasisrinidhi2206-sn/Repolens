@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#080b14">
+    <meta name="description" content="RepoLens helps developers understand GitHub repositories with code quality insights, security and dependency checks, architecture visualization, and code review.">
+    <title>RepoLens — See the shape of every codebase</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23131b32'/%3E%3Ccircle cx='17' cy='17' r='8' fill='none' stroke='%237c9dff' stroke-width='3'/%3E%3Cpath d='m23 23 8 8' stroke='%23ae8cff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="styles.css">
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <header class="site-header">
+      <nav class="nav shell" aria-label="Main navigation">
+        <a class="brand" href="#home" aria-label="RepoLens home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <circle cx="13.5" cy="13.5" r="8" stroke="currentColor" stroke-width="2.5"></circle>
+              <path d="m19.5 19.5 7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></path>
+              <path d="M10.5 13.5h6M13.5 10.5v6" stroke="#a78bfa" stroke-width="1.7" stroke-linecap="round"></path>
+            </svg>
+          </span>
+          <span>Repo<span class="brand-accent">Lens</span></span>
+        </a>
+
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Open navigation menu">
+          <span></span><span></span>
+        </button>
+
+        <div class="nav-links" id="nav-links">
+          <a href="#home">Home</a>
+          <a href="#features">Features</a>
+          <a href="#how-it-works">How It Works</a>
+          <a href="#about">About</a>
+          <a class="nav-github" href="https://github.com/thulasisrinidhi2206-sn/Repolens" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.1c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.24-1.62-1.24-1.62-1.01-.7.08-.69.08-.69 1.12.08 1.7 1.15 1.7 1.15.99 1.69 2.6 1.2 3.23.92.1-.72.39-1.2.7-1.48-2.47-.28-5.06-1.24-5.06-5.5 0-1.21.43-2.2 1.15-2.98-.12-.28-.5-1.42.11-2.96 0 0 .94-.3 3.05 1.14a10.58 10.58 0 0 1 5.55 0c2.11-1.44 3.05-1.14 3.05-1.14.61 1.54.23 2.68.11 2.96.72.78 1.15 1.77 1.15 2.98 0 4.27-2.6 5.21-5.08 5.49.4.35.75 1.02.75 2.06v3.08c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg>
+            GitHub
+          </a>
+          <a class="button button-small button-primary nav-cta" href="#installation">Get started <span aria-hidden="true">↗</span></a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main-content">
+      <section class="hero section-shell" id="home">
+        <div class="hero-grid shell">
+          <div class="hero-copy reveal">
+            <div class="eyebrow"><span class="eyebrow-dot"></span> A clearer view of your GitHub repositories</div>
+            <h1>Understand Your Codebase.<br><span class="gradient-text">Improve Every Repository.</span></h1>
+            <p class="hero-lede">RepoLens brings repository structure, quality signals, security checks, and code review into one focused view—right where you already explore code.</p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="https://github.com/thulasisrinidhi2206-sn/Repolens" target="_blank" rel="noopener noreferrer">
+                Explore on GitHub
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10h11m-4.5-4.5L15.5 10 11 14.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </a>
+              <a class="button button-quiet" href="#features">Discover features <span aria-hidden="true">↓</span></a>
+            </div>
+            <div class="hero-note">
+              <span class="hero-note-icon" aria-hidden="true">⌘</span>
+              <span>Open source <i></i> Chrome extension <i></i> Developer-first</span>
+            </div>
+          </div>
+
+          <div class="hero-visual reveal" aria-label="Illustrative RepoLens interface preview, not a live repository analysis">
+            <div class="visual-glow"></div>
+            <div class="orbit orbit-one"></div>
+            <div class="orbit orbit-two"></div>
+            <div class="dashboard-window">
+              <div class="window-topbar">
+                <div class="window-controls"><span></span><span></span><span></span></div>
+                <div class="window-address"><span class="tiny-lens">⌕</span> github.com / acme / storefront</div>
+                <span class="window-live">ILLUSTRATION</span>
+              </div>
+              <div class="window-body">
+                <div class="dash-topline">
+                  <div>
+                    <span class="dash-overline">REPOSITORY OVERVIEW</span>
+                    <h2>storefront</h2>
+                    <p>React · TypeScript · Vite</p>
+                  </div>
+                  <span class="dash-branch"><span>⑂</span> main</span>
+                </div>
+                <div class="dash-metrics">
+                  <div class="metric-card score-card">
+                    <span>Quality score <span class="metric-info">i</span></span>
+                    <div class="score-content">
+                      <div class="score-ring"><strong>82</strong><small>/100</small></div>
+                      <div><b>Good shape</b><small>Illustrative score</small></div>
+                    </div>
+                  </div>
+                  <div class="metric-card">
+                    <span>Stack detected</span>
+                    <div class="stack-icons"><i class="stack-react">R</i><i class="stack-ts">TS</i><i class="stack-vite">V</i></div>
+                    <small>3 technologies</small>
+                  </div>
+                </div>
+                <div class="dash-section-title"><span>Analysis snapshot</span><span>Sample interface</span></div>
+                <div class="dash-findings">
+                  <div class="finding-row">
+                    <span class="finding-icon finding-purple">✳</span>
+                    <span><b>Code review</b><small>Review findings appear here</small></span>
+                    <span class="finding-status status-purple">READY</span>
+                  </div>
+                  <div class="finding-row">
+                    <span class="finding-icon finding-orange">⌁</span>
+                    <span><b>Security scan</b><small>Potential issues are surfaced</small></span>
+                    <span class="finding-status status-orange">SCAN</span>
+                  </div>
+                  <div class="finding-row">
+                    <span class="finding-icon finding-blue">◇</span>
+                    <span><b>Architecture</b><small>Modules &amp; entry points</small></span>
+                    <span class="finding-status status-blue">MAP</span>
+                  </div>
+                </div>
+                <div class="dashboard-disclaimer">Illustrative interface · no live analysis data</div>
+              </div>
+            </div>
+            <div class="float-chip float-chip-left"><span class="chip-spark">✦</span> Repository insights</div>
+            <div class="float-chip float-chip-right"><span class="chip-check">✓</span> Built for GitHub</div>
+          </div>
+        </div>
+        <a class="scroll-cue" href="#features" aria-label="Scroll to features"><span></span></a>
+      </section>
+
+      <section class="trust-strip" aria-label="Product attributes">
+        <div class="shell trust-inner">
+          <span>ONE VIEW FOR THE SIGNALS THAT MATTER</span>
+          <div><b>01</b> Understand structure</div>
+          <div><b>02</b> Spot potential issues</div>
+          <div><b>03</b> Review with context</div>
+        </div>
+      </section>
+
+      <section class="section section-features" id="features">
+        <div class="shell">
+          <div class="section-heading centered reveal">
+            <span class="section-kicker">CAPABILITIES</span>
+            <h2>Repository context,<br><span class="gradient-text">without the busywork.</span></h2>
+            <p>From the shape of a project to the details worth a closer look, RepoLens helps you get oriented faster.</p>
+          </div>
+          <div class="feature-grid">
+            <article class="feature-card reveal">
+              <span class="feature-icon icon-purple">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 14.2 8l5.3-2.2-2.2 5.3 5 2.2-5 2.2 2.2 5.3-5.3-2.2-2.2 5-2.2-5-5.3 2.2 2.2-5.3-5-2.2 5-2.2-2.2-5.3L9.8 8 12 3Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path><circle cx="12" cy="13" r="2" fill="currentColor"></circle></svg>
+              </span>
+              <h3>AI Code Review</h3>
+              <p>Get review suggestions with Gemini when configured, or use the built-in static analyzer fallback.</p>
+              <span class="feature-index">01</span>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon icon-blue">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 16v-4m4 4V8m4 8v-6m4 6V4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path></svg>
+              </span>
+              <h3>Code Quality Scoring</h3>
+              <p>See a transparent, heuristic score across organization, maintainability, docs, tests, dependencies, and security.</p>
+              <span class="feature-index">02</span>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon icon-orange">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5-3.4 8.3-8 10-4.6-1.7-8-5-8-10V6l8-3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </span>
+              <h3>Security Scanning</h3>
+              <p>Surface selected secret, configuration, and code-pattern risks in sampled repository files.</p>
+              <span class="feature-index">03</span>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon icon-green">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7h11m-11 5h11m-11 5h11M4 7h.01M4 12h.01M4 17h.01" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path><path d="m16 3 4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </span>
+              <h3>Dependency Analysis</h3>
+              <p>Review dependency counts and identify unpinned packages and matches from an offline advisory list.</p>
+              <span class="feature-index">04</span>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon icon-cyan">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="14" y="15" width="7" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="3" y="15" width="7" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"></rect><path d="M10 6h4a2 2 0 0 1 2 2v7M6.5 9v6" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg>
+              </span>
+              <h3>Architecture Visualization</h3>
+              <p>Explore an SVG module map generated from repository paths, entry points, and detected technologies.</p>
+              <span class="feature-index">05</span>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon icon-pink">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="m15.5 15.5 5 5M8 10.5h5m-2.5-2.5v5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
+              </span>
+              <h3>Repository Insights</h3>
+              <p>Detect project type, frameworks, repository metadata, and possible live demo links in context.</p>
+              <span class="feature-index">06</span>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon icon-yellow">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path><path d="M14 3v6h6M8 14h8m-8 4h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>
+              </span>
+              <h3>Markdown and PDF Reports</h3>
+              <p>Take an analysis with you in readable Markdown or a shareable PDF export.</p>
+              <span class="feature-index">07</span>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-icon icon-indigo">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 1 4 17.5v-12Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path><path d="M4 6h13M8 10h8m-8 3h8m-8 3h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>
+              </span>
+              <h3>Analysis History</h3>
+              <p>Keep recent repository analyses in your extension and return to their saved insights.</p>
+              <span class="feature-index">08</span>
+            </article>
+          </div>
+          <p class="feature-footnote"><span aria-hidden="true">ⓘ</span> Security and code review checks use a bounded sample; dependency advisories are offline and heuristic scores are not professional audits.</p>
+          <p class="feature-footnote">Optional sandbox previews for supported static and Vite projects require Docker on the backend host.</p>
+        </div>
+      </section>
+
+      <section class="section how-section" id="how-it-works">
+        <div class="shell">
+          <div class="section-heading centered reveal">
+            <span class="section-kicker">THREE STEPS</span>
+            <h2>From repository to<br><span class="gradient-text">understanding.</span></h2>
+            <p>RepoLens fits into the GitHub workflow you already know.</p>
+          </div>
+          <div class="steps-grid">
+            <article class="step-card reveal">
+              <span class="step-number">01</span>
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"></rect><path d="M9 7h6M9 11h6M9 15h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path><path d="m16 16 2 2 4-4" fill="none" stroke="#8b7bff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </div>
+              <h3>Install the RepoLens Chrome extension</h3>
+              <p>Build RepoLens from the project and load the <code>extension/</code> folder in Chrome Developer Mode.</p>
+            </article>
+            <div class="step-connector" aria-hidden="true"><span></span><span></span><span></span></div>
+            <article class="step-card reveal">
+              <span class="step-number">02</span>
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z" fill="none" stroke="currentColor" stroke-width="1.5"></path><path d="M4 9h16M8 5v4" stroke="currentColor" stroke-width="1.5"></path><path d="m10 15 2-2 2 2m-2-2v4" fill="none" stroke="#8b7bff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </div>
+              <h3>Open a GitHub repository</h3>
+              <p>Visit a public repository page. RepoLens adds an analysis action to the GitHub interface.</p>
+            </article>
+            <div class="step-connector" aria-hidden="true"><span></span><span></span><span></span></div>
+            <article class="step-card reveal">
+              <span class="step-number">03</span>
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="m15.5 15.5 5 5M8 10.5h5m-2.5-2.5v5" fill="none" stroke="#8b7bff" stroke-width="1.6" stroke-linecap="round"></path></svg>
+              </div>
+              <h3>Analyze and explore the insights</h3>
+              <p>Review the detected stack, project structure, quality signals, scan findings, and available reports.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section preview-section" id="dashboard-preview">
+        <div class="shell preview-layout">
+          <div class="preview-copy reveal">
+            <span class="section-kicker">A CLOSER LOOK</span>
+            <h2>Everything in one<br><span class="gradient-text">repository view.</span></h2>
+            <p>Move from a quick project overview to details you can investigate. RepoLens brings its analysis sections together in the GitHub browsing experience.</p>
+            <ul class="preview-points">
+              <li><span>✓</span> Project type and framework detection</li>
+              <li><span>✓</span> Transparent quality score categories</li>
+              <li><span>✓</span> Architecture, security, and dependency sections</li>
+              <li><span>✓</span> Review findings and downloadable reports</li>
+            </ul>
+            <a class="text-link" href="#installation">Set it up locally <span aria-hidden="true">→</span></a>
+          </div>
+          <div class="preview-frame-wrap reveal">
+            <div class="preview-tag"><span class="preview-tag-dot"></span> DESIGN PREVIEW · NOT A LIVE ANALYSIS</div>
+            <div class="preview-window">
+              <div class="preview-window-head">
+                <div class="window-controls"><span></span><span></span><span></span></div>
+                <span class="preview-window-title">RepoLens · Repository analysis</span>
+                <span class="preview-window-menu">•••</span>
+              </div>
+              <div class="preview-repo">
+                <div class="preview-avatar">RL</div>
+                <div><strong>Repository overview</strong><small>Illustrative layout · no live repository data</small></div>
+                <span class="preview-type">PROJECT INSIGHTS</span>
+              </div>
+              <div class="preview-score-row">
+                <div class="preview-score">
+                  <div class="preview-score-circle"><span>82</span><small>/100</small></div>
+                  <div><small>Illustrative quality score</small><b>Repository health</b><span class="preview-grade">Example only · not measured data</span></div>
+                </div>
+                <div class="preview-score-bars">
+                  <div><span>Organization</span><i><b style="width: 78%"></b></i></div>
+                  <div><span>Maintainability</span><i><b style="width: 68%"></b></i></div>
+                  <div><span>Documentation</span><i><b style="width: 86%"></b></i></div>
+                </div>
+              </div>
+              <div class="preview-tabs"><span class="active">Overview</span><span>Architecture</span><span>Security</span><span>Review</span></div>
+              <div class="preview-lower">
+                <div class="architecture-card">
+                  <div class="preview-card-heading">Architecture map <span>Illustration</span></div>
+                  <div class="mini-map">
+                    <div class="map-node map-root">Application</div>
+                    <div class="map-branches"><span></span><span></span><span></span></div>
+                    <div class="map-children"><div>src / components</div><div>src / services</div><div>src / routes</div></div>
+                  </div>
+                </div>
+                <div class="findings-card">
+                  <div class="preview-card-heading">Analysis sections <span>Sample UI</span></div>
+                  <div class="preview-finding"><i class="mini-dot purple"></i><span>Code review<small>Findings and suggestions</small></span><b>›</b></div>
+                  <div class="preview-finding"><i class="mini-dot orange"></i><span>Security<small>Sampled-file checks</small></span><b>›</b></div>
+                  <div class="preview-finding"><i class="mini-dot blue"></i><span>Dependencies<small>Offline advisory matches</small></span><b>›</b></div>
+                </div>
+              </div>
+              <div class="preview-watermark">Concept UI · all values and labels are illustrative</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section why-section">
+        <div class="shell why-layout">
+          <div class="why-heading reveal">
+            <span class="section-kicker">WHY REPOLENS</span>
+            <h2>Spend less time<br>getting oriented.</h2>
+            <p>Every repository has its own structure and conventions. RepoLens gives you a consistent starting point for understanding what’s inside.</p>
+          </div>
+          <div class="why-list">
+            <article class="why-item reveal">
+              <span class="why-number">01</span>
+              <div><h3>See how the project is put together</h3><p>Get a quick read on languages, frameworks, entry points, and major modules.</p></div>
+              <span class="why-arrow" aria-hidden="true">↗</span>
+            </article>
+            <article class="why-item reveal">
+              <span class="why-number">02</span>
+              <div><h3>Know what may need another look</h3><p>Surface heuristic quality signals and sampled security or dependency findings to guide further review.</p></div>
+              <span class="why-arrow" aria-hidden="true">↗</span>
+            </article>
+            <article class="why-item reveal">
+              <span class="why-number">03</span>
+              <div><h3>Keep your evaluation in context</h3><p>Analyze from GitHub, revisit recent results, and export a report when you need one.</p></div>
+              <span class="why-arrow" aria-hidden="true">↗</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section install-section" id="installation">
+        <div class="shell install-shell">
+          <div class="section-heading centered reveal">
+            <span class="section-kicker">GET STARTED</span>
+            <h2>Bring RepoLens<br><span class="gradient-text">to your browser.</span></h2>
+            <p>Build the project locally, then load the extension in Chrome. No extension-store listing is required.</p>
+          </div>
+          <div class="install-card reveal">
+            <div class="install-card-head">
+              <div><span class="install-live-dot"></span> LOCAL SETUP</div>
+              <a href="https://github.com/thulasisrinidhi2206-sn/Repolens" target="_blank" rel="noopener noreferrer">View repository <span aria-hidden="true">↗</span></a>
+            </div>
+            <div class="install-step">
+              <span class="install-step-number">01</span>
+              <div class="install-step-content">
+                <h3>Clone the repository</h3>
+                <div class="code-line"><code>git clone https://github.com/thulasisrinidhi2206-sn/Repolens.git</code><button class="copy-button" type="button" data-copy="git clone https://github.com/thulasisrinidhi2206-sn/Repolens.git" aria-label="Copy clone command">Copy</button></div>
+              </div>
+            </div>
+            <div class="install-step">
+              <span class="install-step-number">02</span>
+              <div class="install-step-content">
+                <h3>Install dependencies and build</h3>
+                <div class="code-line"><code>cd Repolens &amp;&amp; npm install &amp;&amp; npm run build</code><button class="copy-button" type="button" data-copy="cd Repolens && npm install && npm run build" aria-label="Copy install and build commands">Copy</button></div>
+              </div>
+            </div>
+            <div class="install-step">
+              <span class="install-step-number">03</span>
+              <div class="install-step-content">
+                <h3>Load the extension in Chrome</h3>
+                <ol class="chrome-steps">
+                  <li>Open <code>chrome://extensions</code> and switch on <strong>Developer mode</strong>.</li>
+                  <li>Select <strong>Load unpacked</strong> and choose the project’s <code>extension/</code> folder (the folder containing <code>manifest.json</code>).</li>
+                  <li>Start the backend with <code>npm run dev:backend</code> for local analysis.</li>
+                </ol>
+              </div>
+            </div>
+            <div class="install-note">
+              <span aria-hidden="true">ⓘ</span>
+              <p>Repository analysis requires the backend and GitHub API access. Gemini review is optional; sandbox preview requires Docker running on the backend host.</p>
+            </div>
+          </div>
+          <div class="website-dev reveal">
+            <span>Just here to preview the landing page?</span>
+            <code>npm run dev:website</code>
+            <span>Build static files with</span>
+            <code>npm run build:website</code>
+            <span>Deploy <code>website/dist/</code> to a static host.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section about-section" id="about">
+        <div class="shell about-card reveal">
+          <div class="about-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none"><circle cx="20" cy="20" r="12" stroke="currentColor" stroke-width="3"></circle><path d="m29 29 11 11" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path><path d="M15 20h10m-5-5v10" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"></path></svg>
+          </div>
+          <div class="about-copy">
+            <span class="section-kicker">ABOUT REPOLENS</span>
+            <h2>A practical lens on<br><span class="gradient-text">the code you explore.</span></h2>
+            <p>RepoLens is a developer productivity and repository analysis project. Its Chrome extension connects GitHub repository pages to a backend that assembles project signals into an approachable overview.</p>
+          </div>
+          <a class="button button-outline" href="https://github.com/thulasisrinidhi2206-sn/Repolens" target="_blank" rel="noopener noreferrer">Explore the project <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-main">
+        <div class="footer-brand">
+          <a class="brand" href="#home">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 32 32" fill="none"><circle cx="13.5" cy="13.5" r="8" stroke="currentColor" stroke-width="2.5"></circle><path d="m19.5 19.5 7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></path><path d="M10.5 13.5h6M13.5 10.5v6" stroke="#a78bfa" stroke-width="1.7" stroke-linecap="round"></path></svg>
+            </span>
+            <span>Repo<span class="brand-accent">Lens</span></span>
+          </a>
+          <p>A clearer view of the repositories you explore.</p>
+        </div>
+        <div class="footer-nav">
+          <div><span>EXPLORE</span><a href="#features">Features</a><a href="#how-it-works">How It Works</a><a href="#about">About</a></div>
+          <div><span>PROJECT</span><a href="#installation">Get started</a><a href="https://github.com/thulasisrinidhi2206-sn/Repolens" target="_blank" rel="noopener noreferrer">GitHub repository ↗</a></div>
+        </div>
+      </div>
+      <div class="shell footer-bottom">
+        <span>© <span id="current-year">2026</span> RepoLens. Open-source developer tooling.</span>
+        <a href="https://github.com/thulasisrinidhi2206-sn/Repolens" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.1c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.24-1.62-1.24-1.62-1.01-.7.08-.69.08-.69 1.12.08 1.7 1.15 1.7 1.15.99 1.69 2.6 1.2 3.23.92.1-.72.39-1.2.7-1.48-2.47-.28-5.06-1.24-5.06-5.5 0-1.21.43-2.2 1.15-2.98-.12-.28-.5-1.42.11-2.96 0 0 .94-.3 3.05 1.14a10.58 10.58 0 0 1 5.55 0c2.11-1.44 3.05-1.14 3.05-1.14.61 1.54.23 2.68.11 2.96.72.78 1.15 1.77 1.15 2.98 0 4.27-2.6 5.21-5.08 5.49.4.35.75 1.02.75 2.06v3.08c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg> Open on GitHub</a>
+      </div>
+    </footer>
+  </body>
+</html>
