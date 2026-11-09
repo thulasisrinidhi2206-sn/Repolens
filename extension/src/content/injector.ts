@@ -3,6 +3,7 @@
  */
 
 import { apiClient } from '../services/api';
+import { saveAnalysisToHistory } from '../services/history';
 import { RepoInfo } from './types';
 import { createPreviewButton } from './ui/button';
 import {
@@ -44,6 +45,7 @@ export async function handlePreviewProjectClick(repo: RepoInfo): Promise<void> {
 
       if (response.success && response.data) {
         console.log('[RepoLens] Analysis response received:', response.data);
+        await saveAnalysisToHistory(response.data);
         updateModalToSuccess(repo, response.data);
       } else {
         throw new Error(response.error || 'Failed to analyze repository');

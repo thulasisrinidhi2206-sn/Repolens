@@ -331,6 +331,24 @@ export interface AnalyzeRepoRequest {
 }
 
 /**
+ * Compact record stored in extension analysis history (chrome.storage)
+ */
+export interface AnalysisHistoryEntry {
+  id: string;
+  repositoryUrl: string;
+  owner: string;
+  repo: string;
+  analyzedAt: string;
+  projectType: ProjectType;
+  framework: string;
+  overallScore?: number;
+  grade?: QualityScoreMetrics['grade'];
+  hasDemo: boolean;
+  primaryDemoUrl?: string | null;
+  analysis?: AnalyzeRepoData;
+}
+
+/**
  * Standard API response wrapper
  */
 export interface ApiResponse<T = unknown> {
@@ -340,3 +358,5 @@ export interface ApiResponse<T = unknown> {
   message?: string;
   timestamp: string;
 }
+
+export { buildMarkdownReport, buildPdfReport, reportBasename } from './report';

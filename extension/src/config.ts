@@ -18,7 +18,7 @@ export const CONFIG = {
   /**
    * Request timeout in milliseconds
    */
-  REQUEST_TIMEOUT_MS: 15000,
+  REQUEST_TIMEOUT_MS: 45000,
 } as const;
 
 export type Config = typeof CONFIG;

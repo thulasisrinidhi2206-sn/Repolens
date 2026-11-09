@@ -5,6 +5,9 @@
 import { AnalyzeRepoData, CreatePreviewData } from '@repolens/shared';
 import { RepoInfo } from '../types';
 import { apiClient } from '../../services/api';
+import { downloadMarkdownReport, downloadPdfReport } from '../../services/report';
+import { renderDashboardSections } from './dashboard';
+import { escapeHtml } from './html';
 
 let activeOverlay: HTMLElement | null = null;
 
@@ -51,9 +54,13 @@ export function updateModalToSuccess(repo: RepoInfo, data: AnalyzeRepoData): voi
   const doneBtn = dialog.querySelector('#repolens-modal-done-btn');
   const openDemoBtn = dialog.querySelector<HTMLAnchorElement>('#repolens-open-demo-btn');
   const launchPreviewBtn = dialog.querySelector('#repolens-modal-launch-preview-btn');
+  const exportMdBtn = dialog.querySelector('#repolens-export-md-btn');
+  const exportPdfBtn = dialog.querySelector('#repolens-export-pdf-btn');
 
   closeBtn?.addEventListener('click', closeActiveModal);
   doneBtn?.addEventListener('click', closeActiveModal);
+  exportMdBtn?.addEventListener('click', () => downloadMarkdownReport(data));
+  exportPdfBtn?.addEventListener('click', () => downloadPdfReport(data));
 
   const primaryDemoUrl = data.demo?.primaryDemoUrl;
   if (openDemoBtn && primaryDemoUrl) {
@@ -221,7 +228,7 @@ function getLoadingStateHtml(repo: RepoInfo): string {
         <div class="repolens-spinner"></div>
         <h3 class="repolens-loading-heading">Analyzing Repository...</h3>
         <p class="repolens-loading-subtext">
-          Fetching repository files, inspecting architecture, and searching for live demos.
+          Fetching repository files, scoring quality, scanning security and dependencies, and searching for live demos.
         </p>
       </div>
     </div>
@@ -488,6 +495,8 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
         </div>
       </div>
 
+      ${renderDashboardSections(data)}
+
       <!-- Footer Callout -->
       <div class="repolens-info-callout">
         <span class="repolens-info-icon">${hasDemo ? '🚀' : '💡'}</span>
@@ -500,8 +509,14 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
     </div>
 
     <div class="repolens-modal-footer">
+      <button type="button" class="repolens-modal-btn-secondary" id="repolens-export-md-btn">
+        Export Markdown
+      </button>
+      <button type="button" class="repolens-modal-btn-secondary" id="repolens-export-pdf-btn">
+        Export PDF
+      </button>
       <button type="button" class="repolens-modal-btn-secondary" id="repolens-modal-launch-preview-btn">
-        🚀 Launch Sandbox Preview
+        Launch Sandbox Preview
       </button>
       <button type="button" class="repolens-modal-btn-primary" id="repolens-modal-done-btn">
         Done
@@ -573,16 +588,4 @@ function setupModalListeners(overlay: HTMLElement, dialog: HTMLElement, onCancel
     }
   };
   document.addEventListener('keydown', handleKeyDown);
-}
-
-/**
- * HTML escaper helper
- */
-function escapeHtml(str: string): string {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }

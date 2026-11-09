@@ -227,23 +227,21 @@ Return strictly valid JSON matching this schema:
       }
     }
 
-    // Heuristic findings based on architecture if few file contents were fetched
-    if (findings.length === 0) {
-      findings.push({
-        id: 'static-clean',
-        title: 'Static Code Inspection Clean',
-        severity: 'Info',
-        file: context.allFiles[0] || 'repository',
-        category: 'maintainability',
-        explanation: 'No obvious syntax errors, empty catch blocks, or dangerous injection patterns detected in sampled files.',
-        source: 'static_analyzer',
-      });
+    const sampledCount = fileContents.size;
+    let summary: string;
+
+    if (sampledCount === 0) {
+      summary = 'Code review was skipped because no source files were sampled from this repository.';
+    } else if (findings.length === 0) {
+      summary = `Static analyzer inspected ${sampledCount} sampled source file(s) and found no console.log, empty catch, dangerouslySetInnerHTML, or loose-equality issues.`;
+    } else {
+      summary = `Static analyzer inspected ${sampledCount} sampled source file(s) and identified ${findings.length} item(s).`;
     }
 
     return {
       isAiPowered: false,
       engine: 'RepoLens Static Code Analyzer',
-      summary: `Automated code review evaluated source files and identified ${findings.length} item(s) for maintainability and code quality improvement.`,
+      summary,
       findings,
     };
   }

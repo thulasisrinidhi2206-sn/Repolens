@@ -32,6 +32,8 @@ export class QualityScorerService {
   public static evaluate(context: QualityScorerContext): QualityScoreMetrics {
     const {
       metadata,
+      projectType,
+      framework,
       rootFiles,
       allFiles = rootFiles,
       packageJsonRaw,
@@ -168,43 +170,43 @@ export class QualityScorerService {
     // Normalize category scores to [0, 100]
     const clamp = (val: number) => Math.max(0, Math.min(100, Math.round(val)));
 
-    const categories = {
+    const categories: QualityScoreMetrics['categories'] = {
       codeOrganization: {
         name: 'Code Organization',
         score: clamp(orgScore),
         weight: 0.20,
         deductions: orgDeductions,
-      },
+      } satisfies ScoreCategory,
       maintainability: {
         name: 'Maintainability',
         score: clamp(maintScore),
         weight: 0.20,
         deductions: maintDeductions,
-      },
+      } satisfies ScoreCategory,
       documentation: {
         name: 'Documentation',
         score: clamp(docScore),
         weight: 0.20,
         deductions: docDeductions,
-      },
+      } satisfies ScoreCategory,
       testCoverage: {
         name: 'Testing & CI/CD',
         score: clamp(testScore),
         weight: 0.15,
         deductions: testDeductions,
-      },
+      } satisfies ScoreCategory,
       dependencyHealth: {
         name: 'Dependency Health',
         score: clamp(depScore),
         weight: 0.15,
         deductions: depDeductions,
-      },
+      } satisfies ScoreCategory,
       security: {
         name: 'Security Posture',
         score: clamp(secScore),
         weight: 0.10,
         deductions: secDeductions,
-      },
+      } satisfies ScoreCategory,
     };
 
     // Calculate overall weighted score
@@ -240,7 +242,8 @@ export class QualityScorerService {
     if (categories.maintainability.score < 75) keyImprovements.push('Adopt TypeScript type safety and automated linters');
     if (categories.dependencyHealth.score < 75) keyImprovements.push('Add lockfile and update vulnerable dependencies');
 
-    const summary = `Overall repository health score is ${overallScore}/100 (${grade}). ${
+    const projectLabel = framework || projectType;
+    const summary = `Overall repository health score for this ${projectLabel} project is ${overallScore}/100 (${grade}). ${
       overallScore >= 80
         ? 'Well-structured, documented project conforming to open-source best practices.'
         : 'Functional repository with identifiable opportunities for test coverage and documentation hardening.'
