@@ -1,8 +1,0 @@
-warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'backend/src/services/architecture.service.ts', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'extension/src/content/styles.css', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'extension/src/content/ui/dashboard.ts', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'extension/src/popup/popup.css', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'extension/src/popup/popup.html', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'extension/src/popup/popup.ts', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'extension/src/services/report.ts', LF will be replaced by CRLF the next time Git touches it
