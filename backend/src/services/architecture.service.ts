@@ -142,13 +142,14 @@ export class ArchitectureService {
     entryPoints: string[]
   ): string {
     const lines: string[] = ['graph TD'];
+    const label = (value: string) => value.replace(/["\r\n]/g, ' ').trim();
 
-    const entryLabel = entryPoints[0] || 'Entrypoint';
-    lines.push(`  ENTRY["${entryLabel}"] --> APP["${framework} Application"]`);
+    const entryLabel = label(entryPoints[0] || 'Entrypoint');
+    lines.push(`  ENTRY["${entryLabel}"] --> APP["${label(framework || projectType)} Application"]`);
 
     modules.forEach((mod, idx) => {
       const id = `MOD_${idx}`;
-      lines.push(`  APP --> ${id}["${mod.name} (${mod.role})"]`);
+      lines.push(`  APP --> ${id}["${label(mod.name)} (${label(mod.role)})"]`);
     });
 
     return lines.join('\n');

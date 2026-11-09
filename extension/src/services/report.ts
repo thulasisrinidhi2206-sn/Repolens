@@ -7,7 +7,8 @@ import { AnalyzeRepoData, buildMarkdownReport, buildPdfReport, reportBasename } 
 export { buildMarkdownReport, buildPdfReport, reportBasename };
 
 export function downloadBinaryFile(filename: string, contents: Uint8Array | string, mimeType: string): void {
-  const blob = new Blob([contents], { type: mimeType });
+  const blobContents = typeof contents === 'string' ? contents : new Uint8Array(contents);
+  const blob = new Blob([blobContents], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;

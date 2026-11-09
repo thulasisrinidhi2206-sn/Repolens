@@ -17,9 +17,13 @@
 **RepoLens** bridges the gap between static GitHub code repositories and interactive evaluation. When reviewing repositories, developers, hiring managers, and recruiters often struggle with clone-and-run friction or missing live deployments. 
 
 RepoLens injects contextual evaluation tools directly into GitHub repository pages via a Chrome Manifest V3 extension, providing:
-1. **Automated Architectural Analysis**: Instant classification of project type, framework, dependencies, and file structures.
-2. **SSRF-Protected Live Demo Discovery**: Automated extraction and reachability validation of deployed demos from repository metadata and README files.
-3. **On-Demand Isolated Preview Sandbox**: Spawns ephemeral, read-only Docker containers (`nginx:alpine` and `node:20-alpine`) on localhost for eligible static and Vite/React projects.
+1. **Repository Analysis Dashboard**: Project metadata, a transparent weighted quality score, architecture, security and dependency findings, and code review.
+2. **Architecture Visualization**: A browser-rendered module graph plus Mermaid source, based on repository paths and entry points.
+3. **Security & Dependency Scanning**: Sampled secret/configuration checks and a deterministic offline advisory list.
+4. **AI-Assisted Code Review**: Optional Gemini review when configured on the backend, with a deterministic static analyzer fallback.
+5. **Reports & History**: Export Markdown/PDF reports and revisit the latest 15 repository analyses from the extension popup.
+6. **SSRF-Protected Live Demo Discovery**: Automated extraction and reachability validation of deployed demos from repository metadata and README files.
+7. **On-Demand Isolated Preview Sandbox**: Spawns ephemeral, read-only Docker containers (`nginx:alpine` and `node:20-alpine`) on localhost for eligible static and Vite/React projects.
 
 ---
 
@@ -99,6 +103,13 @@ flowchart TD
   - Container build runs `--ignore-scripts` to block malicious npm lifecycle hooks.
   - Automatic 10-minute TTL cleanup and startup orphan container pruning.
 - **Rate Limiting & Production CORS**: Built-in sliding-window rate limiting on API endpoints and configurable CORS origins.
+
+### Analysis coverage and limitations
+
+- Analysis is returned by `POST /api/analyze` and the extension keeps up to 15 recent results locally in `chrome.storage.local`.
+- Security and code review checks operate on a bounded sample of repository source files. Dependency advisories are an offline, deterministic list; they are not a live CVE or package-registry audit.
+- Gemini review is optional and requires a backend-only `GEMINI_API_KEY`. Without it, RepoLens labels and returns its static analyzer results instead.
+- Quality scores are heuristic repository-health indicators, not measured code coverage or a substitute for a professional security audit.
 
 ---
 
@@ -195,7 +206,7 @@ The backend API will start at `http://localhost:3001`. Verify it by visiting `ht
 
 ## 🧪 Running Automated Tests
 
-RepoLens includes a comprehensive unit and integration test suite covering:
+RepoLens includes a unit and integration test suite covering:
 - GitHub URL parsing and branch extraction.
 - SSRF prevention, private IP CIDR filtering, and redirect validation.
 - Project detection (Vite with/without config, React, Next.js, Node.js, Python, Static HTML).
@@ -203,23 +214,13 @@ RepoLens includes a comprehensive unit and integration test suite covering:
 - GitHub API error handling (distinguishing 404 from rate limit / network errors).
 - Preview session lifecycle, log sanitization, and expiration.
 - API endpoints and input validation.
+- Quality scoring, security/dependency scanners, architecture analysis, and sampled static review.
+- Extension-to-backend analysis requests, dashboard rendering, extension history storage, and Markdown/PDF report output.
 
 Run the test suite:
 
 ```bash
 npm test
-```
-
-Expected output:
-```text
-✔ RepoLens Backend API Endpoints (6 tests)
-✔ ProjectDetectorService (7 tests)
-✔ StaticDetectorService Eligibility Evaluation (3 tests)
-✔ GitHubService Error Handling (4 tests)
-✔ PreviewManagerService & Expiration (3 tests)
-✔ SsrfProtectionService (7 tests)
-✔ GitHubUrlValidatorService (9 tests)
-ℹ tests 39 | pass 39 | fail 0
 ```
 
 ---
@@ -341,14 +342,16 @@ The visual preview functionality requires an environment capable of launching Do
 1. **Docker Daemon Dependency for Previews**: Visual preview sandboxes require Docker on the host. When deployed on standard serverless or PaaS environments without Docker, repository analysis functions normally, while the preview button displays a helpful status message.
 2. **Preview Framework Scope**: Visual preview generation currently supports **Static HTML/CSS/JS** and **Vite / React-Vite** projects. Full server-side rendering frameworks (Next.js SSR, Nuxt, Django) are intentionally classified and reported, with containerized preview support planned for subsequent releases.
 3. **GitHub Unauthenticated Rate Limits**: GitHub limits anonymous API requests to 60/hour. Configuring a personal access token (`GITHUB_TOKEN`) increases this limit to 5,000/hour.
+4. **Heuristic Scan Coverage**: Security and static code-review rules inspect only sampled files. Dependency findings use a small offline advisory list, not a live vulnerability database, and can miss newly disclosed or transitive issues.
+5. **Optional AI Review**: Gemini-powered review is available only when `GEMINI_API_KEY` is configured on the backend; otherwise the static review is used.
 
 ---
 
 ## 🗺️ Roadmap & Future Enhancements
 
 - [ ] Support containerized SSR previews for Next.js and Nuxt applications.
-- [ ] Automated Code Quality & Maintainability scoring with Sonar/ESLint analysis.
-- [ ] AI-powered pull request evaluation and security vulnerability detection.
+- [ ] Integrate a maintained live dependency vulnerability database and expand static security analysis.
+- [ ] Add pull-request review workflows and broader source-aware analysis beyond the bounded sample.
 - [ ] Firefox and Safari extension porting.
 
 ---

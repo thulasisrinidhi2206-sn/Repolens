@@ -98,6 +98,35 @@ function architectureSection(data: AnalyzeRepoData): string {
         .join('')
     : '<li class="muted">No major modules were inferred from the file tree.</li>';
 
+  const graphModules = arch.majorModules.map((mod, index) => {
+    const y = 24 + index * 58;
+    const label = escapeHtml(mod.name);
+    const role = escapeHtml(`${mod.role} · ${mod.fileCount} files`);
+    return `
+      <path class="graph-edge" marker-end="url(#repolens-arrow)" d="M 394 46 C 430 46, 424 ${y + 22}, 454 ${y + 22}" />
+      <rect class="graph-node" x="454" y="${y}" width="220" height="44" rx="6" />
+      <text x="466" y="${y + 18}">${label}</text>
+      <text class="graph-node-detail" x="466" y="${y + 34}">${role}</text>`;
+  }).join('');
+  const graphHeight = Math.max(112, 48 + arch.majorModules.length * 58);
+  const graph = `
+    <svg class="repolens-architecture-graph" role="img" aria-label="Project architecture graph"
+      viewBox="0 0 690 ${graphHeight}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="repolens-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#58a6ff" />
+        </marker>
+      </defs>
+      <path class="graph-edge" marker-end="url(#repolens-arrow)" d="M 162 46 L 210 46" />
+      <rect class="graph-node" x="12" y="24" width="150" height="44" rx="6" />
+      <text x="22" y="42">${escapeHtml(arch.entryPoints[0] || 'Entrypoint')}</text>
+      <text class="graph-node-detail" x="22" y="58">Entry point</text>
+      <rect class="graph-node graph-node-app" x="210" y="24" width="184" height="44" rx="6" />
+      <text x="220" y="42">${escapeHtml(data.framework || data.projectType)} application</text>
+      <text class="graph-node-detail" x="220" y="58">${arch.majorModules.length} module(s)</text>
+      ${graphModules}
+    </svg>`;
+
   return `
     <section class="repolens-dash-section">
       <h3 class="repolens-dash-heading">Architecture</h3>
@@ -121,9 +150,10 @@ function architectureSection(data: AnalyzeRepoData): string {
       </div>
       <h4 class="repolens-subhead">Modules</h4>
       <ul class="repolens-module-list">${modules}</ul>
+      ${graph}
       ${
         arch.mermaidDiagram
-          ? `<pre class="repolens-mermaid">${escapeHtml(arch.mermaidDiagram)}</pre>`
+          ? `<details><summary class="repolens-subhead">Mermaid source</summary><pre class="repolens-mermaid">${escapeHtml(arch.mermaidDiagram)}</pre></details>`
           : ''
       }
     </section>`;

@@ -97,13 +97,16 @@ body.repolens-modal-open {
 }
 
 .repolens-modal-dialog {
-  width: 500px;
+  width: min(900px, 94vw);
   max-width: 94vw;
+  max-height: 92vh;
   background-color: #0d1117;
   border: 1px solid #30363d;
   border-radius: 12px;
   box-shadow: 0 16px 32px rgba(1, 4, 9, 0.85), 0 0 0 1px rgba(240, 246, 252, 0.1);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
   color: #e6edf3;
   animation: repolens-scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -157,6 +160,8 @@ body.repolens-modal-open {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Repo Row & Badges */
@@ -523,6 +528,180 @@ body.repolens-modal-open {
   justify-content: flex-end;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.repolens-dash-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: #0d1117;
+}
+
+.repolens-dash-heading,
+.repolens-subhead {
+  margin: 0;
+  color: #e6edf3;
+  font-size: 14px;
+}
+
+.repolens-subhead {
+  font-size: 12px;
+}
+
+.repolens-grade-row,
+.repolens-category-head,
+.repolens-two-col {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.repolens-two-col > div {
+  flex: 1;
+}
+
+.repolens-grade-row > div:last-child {
+  flex: 1;
+}
+
+.repolens-grade-badge {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  background: #161b22;
+  color: #3fb950;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.repolens-grade-score {
+  color: #e6edf3;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.repolens-score-bar {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #21262d;
+}
+
+.repolens-score-bar span {
+  display: block;
+  height: 100%;
+  background: #3fb950;
+}
+
+.repolens-category-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.repolens-category-head,
+.repolens-dash-meta,
+.repolens-dash-copy,
+.repolens-dash-section ul,
+.repolens-finding p,
+.repolens-finding-file {
+  margin: 0;
+  color: #c9d1d9;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.repolens-dash-meta,
+.muted {
+  color: #8b949e;
+  font-size: 11px;
+}
+
+.repolens-dash-section ul {
+  padding-left: 18px;
+}
+
+.repolens-deduction-list {
+  color: #8b949e !important;
+}
+
+.repolens-finding {
+  padding: 10px;
+  border: 1px solid #30363d;
+  border-left: 3px solid #8b949e;
+  border-radius: 6px;
+  background: #161b22;
+}
+
+.repolens-finding-title {
+  margin-bottom: 4px;
+  color: #e6edf3;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.repolens-sev-pill {
+  margin-right: 5px;
+  color: #f0ad4e;
+}
+
+.repolens-finding-rec {
+  margin-top: 5px !important;
+  color: #8b949e !important;
+}
+
+.repolens-code,
+.repolens-mermaid {
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #010409;
+  color: #c9d1d9;
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.repolens-architecture-graph {
+  width: 100%;
+  min-width: 520px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #010409;
+}
+
+.repolens-architecture-graph .graph-edge {
+  fill: none;
+  stroke: #58a6ff;
+  stroke-width: 1.5;
+}
+
+.repolens-architecture-graph .graph-node {
+  fill: #161b22;
+  stroke: #30363d;
+}
+
+.repolens-architecture-graph .graph-node-app {
+  stroke: #238636;
+}
+
+.repolens-architecture-graph text {
+  fill: #e6edf3;
+  font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.repolens-architecture-graph .graph-node-detail {
+  fill: #8b949e;
+  font-size: 10px;
 }
 
 .repolens-footer-tag {

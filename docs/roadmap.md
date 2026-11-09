@@ -41,6 +41,13 @@ This document outlines the planned phases of development for RepoLens.
 ---
 
 ## Phase 5: Automated Project Evaluation & AI Analytics
-- [ ] Static analysis & project health metric computation
-- [ ] AI-driven code evaluation and architectural summary generation
-- [ ] Interactive report generator for code quality, documentation, and maintainability
+- [x] Static analysis & heuristic project health metric computation
+- [x] Optional Gemini-assisted code review with deterministic static fallback
+- [x] Architecture metadata and a browser-rendered project module graph
+- [x] Dashboard for quality, security, dependency, and review results
+- [x] Markdown and PDF report generation
+- [x] Local extension analysis history
+
+### Follow-up analysis work
+- [ ] Integrate a maintained live dependency vulnerability database.
+- [ ] Expand scanning beyond bounded source samples and the current deterministic rules.

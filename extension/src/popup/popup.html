@@ -37,6 +37,15 @@
           Navigate to any GitHub repository page and click <strong>"Preview Project"</strong> to trigger repository analysis.
         </p>
       </div>
+
+      <section class="card history-card" aria-labelledby="history-heading">
+        <div class="history-heading-row">
+          <h2 id="history-heading">Analysis history</h2>
+          <button type="button" id="history-refresh" class="history-refresh">Refresh</button>
+        </div>
+        <p id="history-status" class="history-status" aria-live="polite">Loading saved analyses...</p>
+        <div id="history-list" class="history-list"></div>
+      </section>
     </main>
 
     <footer class="footer">
