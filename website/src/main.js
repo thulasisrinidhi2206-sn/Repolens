@@ -15,30 +15,16 @@ navToggle?.addEventListener('click', () => {
   navLinks?.classList.toggle('is-open', !isExpanded);
 });
 
-navLinks?.querySelectorAll('a[href^="#"]').forEach(link => {
-  link.addEventListener('click', closeNavigation);
-});
-
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') closeNavigation();
-});
+navLinks?.querySelectorAll('a[href^="#"]').forEach(link => link.addEventListener('click', closeNavigation));
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeNavigation(); });
 
 document.querySelectorAll('[data-copy]').forEach(button => {
   button.addEventListener('click', async () => {
     const command = button.getAttribute('data-copy');
     if (!command) return;
-
-    try {
-      await navigator.clipboard.writeText(command);
-      button.textContent = 'Copied';
-    } catch (error) {
-      console.error('Unable to copy the setup command:', error);
-      button.textContent = 'Copy failed';
-    }
-
-    window.setTimeout(() => {
-      button.textContent = 'Copy';
-    }, 1800);
+    try { await navigator.clipboard.writeText(command); button.textContent = 'Copied'; }
+    catch (error) { console.error('Unable to copy the setup command:', error); button.textContent = 'Copy failed'; }
+    window.setTimeout(() => { button.textContent = 'Copy'; }, 1800);
   });
 });
 
@@ -54,98 +40,473 @@ if ('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-mot
       revealObserver.unobserve(entry.target);
     });
   }, { threshold: 0.12 });
-
   document.documentElement.classList.add('has-reveal');
   revealElements.forEach(element => revealObserver.observe(element));
 }
 
-
-// Live website repository analyzer. The backend owns GitHub credentials;
-// never expose the GitHub token in this browser code.
+// The backend owns GitHub credentials. No secret is exposed in browser code.
 const analyzerForm = document.querySelector('#repo-analyzer-form');
 const repositoryInput = document.querySelector('#repository-url');
 const analyzeButton = document.querySelector('#analyze-button');
 const analyzerStatus = document.querySelector('#analyzer-status');
 const analysisResults = document.querySelector('#analysis-results');
 const REPO_LENS_API = 'https://repolens-backend-gkdm.onrender.com';
+const HISTORY_KEY = 'repolens.web.analysis-history.v1';
+let activeAnalysis = null;
 
 function normalizeGitHubRepositoryUrl(value) {
   const trimmed = value.trim();
-  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://github.com/${trimmed}`;
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : 'https://github.com/' + trimmed;
   let parsed;
-  try {
-    parsed = new URL(candidate);
-  } catch {
-    throw new Error('Enter a valid GitHub repository URL, such as https://github.com/facebook/react.');
-  }
-  if (parsed.hostname.toLowerCase() !== 'github.com' && parsed.hostname.toLowerCase() !== 'www.github.com') {
+  try { parsed = new URL(candidate); }
+  catch { throw new Error('Enter a valid GitHub repository URL, such as https://github.com/facebook/react.'); }
+  if (!['github.com', 'www.github.com'].includes(parsed.hostname.toLowerCase())) {
     throw new Error('Please use a repository URL from github.com.');
   }
   const parts = parsed.pathname.split('/').filter(Boolean);
   if (parts.length < 2 || ['settings', 'marketplace', 'features', 'topics', 'collections'].includes(parts[0].toLowerCase())) {
-    throw new Error('That does not look like a repository URL. Use https://github.com/owner/repository.');
+    throw new Error('Use a repository URL in the format https://github.com/owner/repository.');
   }
-  return `https://github.com/${parts[0]}/${parts[1]}${parts.length > 2 ? '/' + parts.slice(2).join('/') : ''}`;
+  return 'https://github.com/' + parts[0] + '/' + parts[1] + (parts.length > 2 ? '/' + parts.slice(2).join('/') : '');
 }
 
-function appendResultElement(parent, tag, className, value) {
+function node(tag, className, value) {
   const element = document.createElement(tag);
   if (className) element.className = className;
-  element.textContent = value == null || value === '' ? 'Not available' : String(value);
+  if (value !== undefined && value !== null && value !== '') element.textContent = String(value);
+  return element;
+}
+function valueOr(value, fallback = 'Not available') {
+  return value === undefined || value === null || value === '' ? fallback : String(value);
+}
+function addText(parent, tag, className, value) {
+  const element = node(tag, className, valueOr(value));
   parent.appendChild(element);
   return element;
 }
-
-function renderRepositoryAnalysis(data) {
-  analysisResults.replaceChildren();
-  analysisResults.hidden = false;
-  const heading = document.createElement('div');
-  heading.className = 'analysis-result-heading';
-  appendResultElement(heading, 'span', 'section-kicker', 'ANALYSIS COMPLETE');
-  appendResultElement(heading, 'h3', '', data.repo ? `${data.repo.owner}/${data.repo.repo}` : 'Repository analysis');
-  if (data.repositoryUrl) {
-    const link = document.createElement('a');
-    link.href = data.repositoryUrl;
+function makePanel(id, title, description) {
+  const panel = node('section', 'result-panel');
+  panel.id = id;
+  const header = node('div', 'result-panel-heading');
+  header.append(node('span', 'result-panel-kicker', 'REPOLENS FEATURE'));
+  header.append(node('h3', '', title));
+  if (description) header.append(node('p', '', description));
+  panel.append(header);
+  return panel;
+}
+function makeGrid(items) {
+  const grid = node('div', 'analysis-metric-grid');
+  items.forEach(([label, value]) => {
+    const card = node('div', 'analysis-metric');
+    addText(card, 'span', '', label);
+    addText(card, 'strong', '', value);
+    grid.append(card);
+  });
+  return grid;
+}
+function makeList(items, renderItem) {
+  const list = node('div', 'result-list');
+  if (!items || !items.length) {
+    list.append(node('p', 'empty-state', 'No findings were reported by this analysis.'));
+    return list;
+  }
+  items.forEach(item => list.append(renderItem(item)));
+  return list;
+}
+function addBadge(parent, text, kind = '') {
+  parent.append(node('span', 'result-badge ' + kind, text));
+}
+function formatDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleString();
+}
+function safeExternalLink(url, label) {
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+    const link = node('a', 'result-link', label);
+    link.href = parsed.href;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.textContent = 'View on GitHub ↗';
-    heading.appendChild(link);
+    return link;
+  } catch { return null; }
+}
+
+function getHistory() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+function saveHistory(data) {
+  const entry = {
+    id: data.id,
+    repositoryUrl: data.repositoryUrl,
+    repo: data.repo,
+    repository: data.repository,
+    projectType: data.projectType,
+    framework: data.framework,
+    receivedAt: data.receivedAt || new Date().toISOString(),
+    metrics: data.metrics,
+    security: data.security,
+    dependencies: data.dependencies,
+    architecture: data.architecture,
+    codeReview: data.codeReview,
+    demo: data.demo,
+    details: data.details,
+    confidence: data.confidence,
+    files: Array.isArray(data.files) ? data.files.slice(0, 120) : [],
+    filesAnalyzedCount: data.filesAnalyzedCount,
+    filesSkippedCount: data.filesSkippedCount,
+    analysisDurationMs: data.analysisDurationMs,
+    message: data.message
+  };
+  try {
+    const history = getHistory().filter(item => item.repositoryUrl !== entry.repositoryUrl);
+    history.unshift(entry);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 5)));
+    renderHistory();
+  } catch (error) {
+    console.warn('Could not save RepoLens browser history:', error);
   }
-  analysisResults.appendChild(heading);
+}
+function renderHistory() {
+  let panel = document.querySelector('#web-analysis-history');
+  if (!panel) {
+    panel = makePanel('web-analysis-history', 'Analysis History', 'Recent analyses saved in this browser on this device.');
+    analysisResults.append(panel);
+  } else {
+    panel.replaceChildren();
+    const heading = node('div', 'result-panel-heading');
+    heading.append(node('span', 'result-panel-kicker', 'REPOLENS FEATURE'));
+    heading.append(node('h3', '', 'Analysis History'));
+    heading.append(node('p', '', 'Recent analyses saved in this browser on this device.'));
+    panel.append(heading);
+  }
+  const history = getHistory();
+  if (!history.length) {
+    panel.append(node('p', 'empty-state', 'Your recent analyses will appear here after you analyze a repository.'));
+    return;
+  }
+  const list = node('div', 'history-list');
+  history.forEach(entry => {
+    const row = node('div', 'history-row');
+    const info = node('div', 'history-info');
+    addText(info, 'strong', '', (entry.repo?.owner && entry.repo?.repo) ? entry.repo.owner + '/' + entry.repo.repo : entry.repositoryUrl);
+    addText(info, 'span', '', formatDate(entry.receivedAt));
+    addText(info, 'small', '', (entry.projectType || 'Unknown project') + ' · ' + (entry.framework || 'Unknown framework') + ' · Score ' + valueOr(entry.metrics?.overallScore, '—'));
+    const actions = node('div', 'history-actions');
+    const view = node('button', 'button button-small button-quiet', 'View');
+    view.type = 'button';
+    view.addEventListener('click', () => {
+      activeAnalysis = entry;
+      renderRepositoryAnalysis(entry, false);
+      analysisResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    actions.append(view);
+    const link = safeExternalLink(entry.repositoryUrl, 'GitHub ↗');
+    if (link) actions.append(link);
+    row.append(info, actions);
+    list.append(row);
+  });
+  panel.append(list);
+  const clear = node('button', 'button button-small button-quiet history-clear', 'Clear history');
+  clear.type = 'button';
+  clear.addEventListener('click', () => {
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+  });
+  panel.append(clear);
+}
 
-  if (data.message) appendResultElement(analysisResults, 'p', 'analysis-summary', data.message);
+function renderCodeReview(data) {
+  const report = data.codeReview || {};
+  const panel = makePanel('feature-ai-review', 'AI Code Review', report.summary || 'Review of sampled source files.');
+  const meta = node('div', 'result-inline-meta');
+  addBadge(meta, report.isAiPowered ? 'AI-powered' : 'Static analyzer', report.isAiPowered ? 'badge-success' : 'badge-neutral');
+  addText(meta, 'span', '', report.engine || 'Review engine not specified');
+  panel.append(meta);
+  panel.append(makeList(report.findings || [], finding => {
+    const card = node('article', 'finding-card');
+    const top = node('div', 'finding-card-top');
+    addText(top, 'strong', '', finding.title);
+    addBadge(top, finding.severity || 'Info', 'severity-' + String(finding.severity || 'info').toLowerCase());
+    card.append(top);
+    addText(card, 'p', 'finding-description', finding.explanation);
+    addText(card, 'code', 'finding-location', (finding.file || 'Unknown file') + (finding.line ? ':' + finding.line : '') + ' · ' + (finding.category || 'review'));
+    if (finding.codeSnippet) addText(card, 'pre', 'finding-code', finding.codeSnippet);
+    if (finding.suggestedFix) addText(card, 'pre', 'finding-fix', 'Suggested fix:\n' + finding.suggestedFix);
+    return card;
+  }));
+  return panel;
+}
 
-  const metrics = document.createElement('div');
-  metrics.className = 'analysis-metric-grid';
-  const score = data.metrics?.overallScore;
-  const findings = Array.isArray(data.security?.findings) ? data.security.findings.length : null;
-  const deps = Array.isArray(data.dependencies?.list) ? data.dependencies.list.length : null;
-  const metricItems = [
+function renderQuality(data) {
+  const quality = data.metrics?.qualityScore || {};
+  const score = data.metrics?.overallScore ?? quality.overallScore;
+  const panel = makePanel('feature-quality', 'Code Quality Scoring', quality.summary || data.metrics?.summary || 'Heuristic quality assessment.');
+  panel.append(makeGrid([['Overall score', score == null ? 'Not available' : score + '/100'], ['Grade', quality.grade || '—'], ['Files analyzed', data.filesAnalyzedCount ?? '—']]));
+  const categories = quality.categories ? Object.values(quality.categories) : [];
+  if (categories.length) {
+    const bars = node('div', 'quality-breakdown');
+    categories.forEach(category => {
+      const row = node('div', 'quality-row');
+      const label = node('div', 'quality-row-label');
+      addText(label, 'strong', '', category.name);
+      addText(label, 'span', '', category.score + '/100 · ' + Math.round((category.weight || 0) * 100) + '% weight');
+      const track = node('div', 'quality-track');
+      const fill = node('span', 'quality-fill');
+      fill.style.width = Math.max(0, Math.min(100, Number(category.score) || 0)) + '%';
+      track.append(fill);
+      row.append(label, track);
+      bars.append(row);
+      if (category.deductions?.length) {
+        const detail = node('ul', 'compact-list');
+        category.deductions.forEach(item => addText(detail, 'li', '', item.reason + ' (−' + item.points + ')'));
+        row.append(detail);
+      }
+    });
+    panel.append(bars);
+  }
+  appendStringList(panel, 'Key strengths', quality.keyStrengths);
+  appendStringList(panel, 'Suggested improvements', quality.keyImprovements);
+  if (quality.methodology) addText(panel, 'p', 'methodology-note', 'Methodology: ' + quality.methodology);
+  return panel;
+}
+function appendStringList(parent, title, items) {
+  if (!Array.isArray(items) || !items.length) return;
+  addText(parent, 'h4', 'subsection-title', title);
+  const list = node('ul', 'compact-list');
+  items.forEach(item => addText(list, 'li', '', item));
+  parent.append(list);
+}
+
+function renderSecurity(data) {
+  const security = data.security || {};
+  const panel = makePanel('feature-security', 'Security Scanning', 'Selected secret, configuration and source-pattern checks from sampled repository files.');
+  panel.append(makeGrid([['Security score', valueOr(security.score, '—') + (security.score == null ? '' : '/100')], ['Findings', security.findings?.length ?? 0], ['Exposed-secret signals', security.exposedSecretsCount ?? 0]]));
+  panel.append(makeList(security.findings || [], finding => {
+    const card = node('article', 'finding-card');
+    const top = node('div', 'finding-card-top');
+    addText(top, 'strong', '', finding.title);
+    addBadge(top, finding.severity || 'Info', 'severity-' + String(finding.severity || 'info').toLowerCase());
+    card.append(top);
+    addText(card, 'p', 'finding-description', finding.description);
+    addText(card, 'code', 'finding-location', (finding.file || 'Repository') + (finding.line ? ':' + finding.line : '') + ' · ' + (finding.isConfirmed ? 'Pattern matched' : 'Heuristic warning'));
+    addText(card, 'p', 'finding-recommendation', 'Recommendation: ' + valueOr(finding.recommendation));
+    return card;
+  }));
+  return panel;
+}
+
+function renderDependencies(data) {
+  const deps = data.dependencies || { list: [] };
+  const panel = makePanel('feature-dependencies', 'Dependency Analysis', 'Package versions and a small built-in offline advisory list. This is not a live vulnerability database.');
+  panel.append(makeGrid([['Total dependencies', deps.totalCount ?? deps.list?.length ?? 0], ['Known advisory matches', deps.vulnerableCount ?? 0], ['Unpinned / deprecated', deps.outdatedCount ?? 0]]));
+  panel.append(makeList(deps.list || [], item => {
+    const card = node('article', 'dependency-row');
+    const info = node('div', 'dependency-info');
+    addText(info, 'strong', '', item.name);
+    addText(info, 'span', '', valueOr(item.currentVersion) + ' · ' + valueOr(item.type));
+    card.append(info);
+    const flags = node('div', 'dependency-flags');
+    if (item.isVulnerable) addBadge(flags, 'Advisory match', 'badge-danger');
+    if (item.isOutdated) addBadge(flags, 'Review version', 'badge-warning');
+    if (!item.isVulnerable && !item.isOutdated) addBadge(flags, 'No listed issue', 'badge-neutral');
+    card.append(flags);
+    if (item.advisories?.length) addText(card, 'p', 'finding-description', item.advisories.join(' · '));
+    if (item.recommendation) addText(card, 'p', 'finding-recommendation', item.recommendation);
+    return card;
+  }));
+  return panel;
+}
+
+function renderArchitecture(data) {
+  const architecture = data.architecture || {};
+  const panel = makePanel('feature-architecture', 'Architecture Visualization', 'A repository map inferred from directory names, entry points and detected project technologies.');
+  panel.append(makeGrid([['Files in tree', architecture.totalFilesCount ?? '—'], ['Directories', architecture.totalDirectoriesCount ?? '—'], ['Modules', architecture.majorModules?.length ?? 0]]));
+  const map = node('div', 'architecture-map');
+  const root = node('div', 'architecture-root');
+  addText(root, 'strong', '', (data.framework || data.projectType || 'Application') + ' application');
+  addText(root, 'span', '', 'Detected project root');
+  map.append(root);
+  const modules = node('div', 'architecture-modules');
+  (architecture.majorModules || []).forEach(module => {
+    const card = node('article', 'architecture-module');
+    addText(card, 'strong', '', module.name);
+    addText(card, 'code', '', module.path);
+    addText(card, 'span', '', module.role + ' · ' + module.fileCount + ' files');
+    modules.append(card);
+  });
+  if (!architecture.majorModules?.length) modules.append(node('p', 'empty-state', 'No major directories were detected.'));
+  map.append(modules);
+  panel.append(map);
+  appendStringList(panel, 'Entry points', architecture.entryPoints);
+  appendStringList(panel, 'Configuration files', architecture.configFiles);
+  return panel;
+}
+
+function renderInsights(data) {
+  const repo = data.repository || {};
+  const panel = makePanel('feature-insights', 'Repository Insights', 'Detected stack, GitHub metadata and likely demo links.');
+  panel.append(makeGrid([
     ['Project type', data.projectType],
     ['Framework', data.framework],
-    ['Quality score', score == null ? null : `${score}/100`],
-    ['Security findings', findings],
-    ['Dependencies', deps],
-    ['Files analyzed', data.filesAnalyzedCount]
+    ['Primary language', repo.language || data.details?.mainLanguage],
+    ['Default branch', repo.defaultBranch || data.repo?.branch],
+    ['Stars', repo.stars],
+    ['Forks', repo.forks],
+    ['Detection confidence', data.confidence == null ? '—' : Math.round(data.confidence * 100) + '%'],
+    ['Analysis duration', data.analysisDurationMs == null ? '—' : (data.analysisDurationMs / 1000).toFixed(1) + ' sec']
+  ]));
+  if (repo.description) addText(panel, 'p', 'analysis-summary', repo.description);
+  if (Array.isArray(repo.topics) && repo.topics.length) {
+    const topics = node('div', 'topic-list');
+    repo.topics.forEach(topic => addBadge(topics, topic, 'badge-neutral'));
+    panel.append(topics);
+  }
+  if (data.demo?.hasDemo && data.demo.primaryDemoUrl) {
+    const demo = safeExternalLink(data.demo.primaryDemoUrl, 'Open detected live demo ↗');
+    if (demo) panel.append(demo);
+  } else {
+    addText(panel, 'p', 'empty-state', 'No live demo link was detected.');
+  }
+  return panel;
+}
+
+function buildMarkdownReport(data) {
+  const quality = data.metrics?.qualityScore || {};
+  const security = data.security || {};
+  const deps = data.dependencies || {};
+  const lines = [
+    '# RepoLens Analysis Report',
+    '',
+    '- Repository: ' + (data.repositoryUrl || ''),
+    '- Project: ' + valueOr(data.projectType) + ' / ' + valueOr(data.framework),
+    '- Branch: ' + valueOr(data.repo?.branch),
+    '- Analyzed: ' + formatDate(data.receivedAt),
+    '- Quality score: ' + valueOr(data.metrics?.overallScore, '—') + '/100 (' + valueOr(quality.grade, '—') + ')',
+    '',
+    '## Repository insights',
+    valueOr(data.repository?.description, 'No description available.'),
+    '',
+    '## Quality strengths',
+    ...(quality.keyStrengths || []).map(item => '- ' + item),
+    '',
+    '## Suggested improvements',
+    ...(quality.keyImprovements || []).map(item => '- ' + item),
+    '',
+    '## Security findings',
+    ...(security.findings || []).map(item => '- [' + item.severity + '] ' + item.title + ' — ' + item.description + ' Recommendation: ' + item.recommendation),
+    '',
+    '## Dependencies',
+    'Total: ' + valueOr(deps.totalCount, 0) + ' · Advisory matches: ' + valueOr(deps.vulnerableCount, 0) + ' · Version flags: ' + valueOr(deps.outdatedCount, 0),
+    ...(deps.list || []).map(item => '- ' + item.name + ' ' + item.currentVersion + (item.isVulnerable ? ' — advisory match' : '') + (item.recommendation ? ' — ' + item.recommendation : '')),
+    '',
+    '## Code review',
+    valueOr(data.codeReview?.summary, 'No code review report returned.'),
+    ...(data.codeReview?.findings || []).map(item => '- [' + item.severity + '] ' + item.title + ' (' + item.file + (item.line ? ':' + item.line : '') + '): ' + item.explanation + (item.suggestedFix ? '\n  Suggested fix: ' + item.suggestedFix : '')),
+    '',
+    '## Architecture',
+    ...(data.architecture?.majorModules || []).map(item => '- ' + item.path + ' — ' + item.role + ' (' + item.fileCount + ' files)'),
+    '',
+    '## Scope and limitations',
+    'RepoLens uses bounded file sampling and heuristic checks. Dependency advisories are offline and limited; results are not a professional security audit.'
   ];
-  metricItems.forEach(([label, value]) => {
-    const card = document.createElement('div');
-    card.className = 'analysis-metric';
-    appendResultElement(card, 'span', '', label);
-    appendResultElement(card, 'strong', '', value);
-    metrics.appendChild(card);
+  return lines.join('\n');
+}
+function downloadMarkdown(data) {
+  const blob = new Blob([buildMarkdownReport(data)], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = node('a');
+  link.href = url;
+  link.download = ((data.repo?.owner || 'repository') + '-' + (data.repo?.repo || 'analysis') + '-repolens-report.md').replace(/[^a-z0-9._-]/gi, '-');
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+function printPdfReport(data) {
+  const reportWindow = window.open('', '_blank');
+  if (!reportWindow) {
+    analyzerStatus.textContent = 'Your browser blocked the report window. Allow pop-ups for this site and try again.';
+    analyzerStatus.className = 'analyzer-status is-error';
+    return;
+  }
+  const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  const markdown = buildMarkdownReport(data);
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>RepoLens report</title><style>body{font:14px/1.6 Arial,sans-serif;max-width:850px;margin:40px auto;padding:0 24px;color:#172033}pre{white-space:pre-wrap;overflow-wrap:anywhere}@media print{button{display:none}body{margin:15mm auto}}</style></head><body><button onclick="window.print()">Print / Save as PDF</button><h1>RepoLens Analysis Report</h1><pre>' + escapeHtml(markdown) + '</pre></body></html>';
+  reportWindow.document.open();
+  reportWindow.document.write(html);
+  reportWindow.document.close();
+  reportWindow.focus();
+}
+function renderReports(data) {
+  const panel = makePanel('feature-reports', 'Markdown and PDF Reports', 'Export this analysis for sharing or keeping with your project notes.');
+  const actions = node('div', 'report-actions');
+  const markdown = node('button', 'button button-primary', 'Download Markdown');
+  markdown.type = 'button';
+  markdown.addEventListener('click', () => downloadMarkdown(data));
+  const pdf = node('button', 'button button-quiet', 'Print / Save as PDF');
+  pdf.type = 'button';
+  pdf.addEventListener('click', () => printPdfReport(data));
+  actions.append(markdown, pdf);
+  panel.append(actions);
+  addText(panel, 'p', 'methodology-note', 'For PDF: choose “Save as PDF” in your browser print dialog.');
+  return panel;
+}
+
+function renderRepositoryAnalysis(data, persist = true) {
+  activeAnalysis = data;
+  analysisResults.replaceChildren();
+  analysisResults.hidden = false;
+
+  const heading = node('div', 'analysis-result-heading');
+  addText(heading, 'span', 'section-kicker', 'ANALYSIS COMPLETE');
+  addText(heading, 'h3', '', data.repo ? data.repo.owner + '/' + data.repo.repo : 'Repository analysis');
+  const repoLink = safeExternalLink(data.repositoryUrl, 'View on GitHub ↗');
+  if (repoLink) heading.append(repoLink);
+  analysisResults.append(heading);
+  if (data.message) addText(analysisResults, 'p', 'analysis-summary', data.message);
+
+  const qualityScore = data.metrics?.overallScore;
+  analysisResults.append(makeGrid([
+    ['Quality score', qualityScore == null ? '—' : qualityScore + '/100'],
+    ['Security findings', data.security?.findings?.length ?? 0],
+    ['Dependencies', data.dependencies?.totalCount ?? data.dependencies?.list?.length ?? 0],
+    ['Files analyzed', data.filesAnalyzedCount ?? '—'],
+    ['Project type', data.projectType],
+    ['Framework', data.framework]
+  ]));
+
+  const featureGrid = node('div', 'result-feature-grid');
+  const sections = [
+    renderCodeReview(data),
+    renderQuality(data),
+    renderSecurity(data),
+    renderDependencies(data),
+    renderArchitecture(data),
+    renderInsights(data),
+    renderReports(data)
+  ];
+  sections.forEach(section => {
+    featureGrid.append(section);
   });
-  analysisResults.appendChild(metrics);
+  analysisResults.append(featureGrid);
 
   if (Array.isArray(data.files) && data.files.length) {
-    const files = document.createElement('details');
-    files.className = 'analysis-files';
-    appendResultElement(files, 'summary', '', `Root files detected (${data.files.length})`);
-    const list = document.createElement('ul');
-    data.files.slice(0, 20).forEach(file => appendResultElement(list, 'li', '', file));
-    files.appendChild(list);
-    analysisResults.appendChild(files);
+    const filesPanel = makePanel('analysis-root-files', 'Repository files', 'Root-level files discovered during analysis.');
+    const details = node('details', 'analysis-files');
+    addText(details, 'summary', '', 'Show ' + data.files.length + ' root entries');
+    const list = node('ul', 'compact-list');
+    data.files.slice(0, 60).forEach(file => addText(list, 'li', '', file));
+    details.append(list);
+    filesPanel.append(details);
+    analysisResults.append(filesPanel);
   }
+
+  renderHistory();
+  if (persist) saveHistory(data);
 }
 
 analyzerForm?.addEventListener('submit', async event => {
@@ -166,11 +527,10 @@ analyzerForm?.addEventListener('submit', async event => {
   analyzeButton.textContent = 'Analyzing…';
   analyzerStatus.textContent = 'Connecting to RepoLens and inspecting the repository. This can take a little while.';
   analyzerStatus.className = 'analyzer-status is-loading';
-
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 120000);
   try {
-    const response = await fetch(`${REPO_LENS_API}/api/analyze`, {
+    const response = await fetch(REPO_LENS_API + '/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ repositoryUrl }),
@@ -178,21 +538,20 @@ analyzerForm?.addEventListener('submit', async event => {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.success === false) {
-      throw new Error(payload.message || payload.error || `Analysis failed (HTTP ${response.status}). Check that the repository is public and try again.`);
+      throw new Error(payload.message || payload.error || 'Analysis failed (HTTP ' + response.status + '). Check that the repository is public and try again.');
     }
     const data = payload.data || payload;
     if (!data.repo && !data.repositoryUrl && !data.projectType) {
       throw new Error(payload.message || 'The backend returned an unexpected response. Please try again.');
     }
-    renderRepositoryAnalysis(data);
-    analyzerStatus.textContent = 'Analysis finished successfully.';
+    renderRepositoryAnalysis(data, true);
+    analyzerStatus.textContent = 'Analysis finished successfully. All available feature sections are below.';
     analyzerStatus.className = 'analyzer-status is-success';
     analysisResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (error) {
-    const message = error.name === 'AbortError'
+    analyzerStatus.textContent = error.name === 'AbortError'
       ? 'The analysis took too long. Please try again in a moment.'
       : error.message || 'Could not reach the RepoLens backend. Please try again.';
-    analyzerStatus.textContent = message;
     analyzerStatus.className = 'analyzer-status is-error';
   } finally {
     window.clearTimeout(timeout);
@@ -200,3 +559,9 @@ analyzerForm?.addEventListener('submit', async event => {
     analyzeButton.innerHTML = 'Analyze repository <span aria-hidden="true">→</span>';
   }
 });
+
+// Show locally saved analyses on page load. The full report is displayed after selecting one.
+if (analysisResults && getHistory().length) {
+  analysisResults.hidden = false;
+  renderHistory();
+}
