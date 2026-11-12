@@ -2777,3 +2777,75 @@ p {
   .analysis-results { display: block !important; color: #111; background: #fff; }
   .result-panel, .finding-card, .dependency-row { break-inside: avoid; background: #fff; color: #111; }
 }
+
+
+/* Connected SVG architecture diagram */
+.architecture-diagram-wrap {
+  overflow-x: auto;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 209, .14);
+  border-radius: 9px;
+  background:
+    linear-gradient(rgba(115, 132, 194, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(115, 132, 194, .045) 1px, transparent 1px),
+    rgba(5, 9, 19, .62);
+  background-size: 22px 22px;
+}
+.architecture-diagram {
+  display: block;
+  width: 100%;
+  min-width: 560px;
+  height: auto;
+  overflow: visible;
+}
+.architecture-edge {
+  fill: none;
+  stroke: #7888db;
+  stroke-width: 2;
+  stroke-opacity: .78;
+}
+.architecture-arrow-head { fill: #9aa8f4; }
+.architecture-root-node {
+  fill: rgba(87, 101, 190, .23);
+  stroke: #8796ee;
+  stroke-width: 1.5;
+}
+.architecture-root-title {
+  fill: #e4e9ff;
+  font: 600 14px var(--sans);
+}
+.architecture-root-subtitle {
+  fill: #9da9d1;
+  font: 10px var(--sans);
+}
+.architecture-module-node {
+  fill: rgba(20, 31, 56, .96);
+  stroke: rgba(126, 149, 219, .55);
+  stroke-width: 1.2;
+}
+.architecture-node-title {
+  fill: #dfe6ff;
+  font: 600 12px var(--sans);
+}
+.architecture-node-path {
+  fill: #9caddc;
+  font: 10px var(--mono);
+}
+.architecture-node-meta {
+  fill: #8e9bbd;
+  font: 9px var(--sans);
+}
+.architecture-empty-label {
+  fill: #9aa6c2;
+  font: 12px var(--sans);
+}
+.architecture-diagram-hint {
+  margin: 10px 0 0;
+  color: #7f8ba8;
+  font-size: 9px;
+  line-height: 1.7;
+}
+@media (max-width: 600px) {
+  .architecture-diagram-wrap { padding: 7px; }
+  .architecture-diagram { min-width: 560px; }
+}
