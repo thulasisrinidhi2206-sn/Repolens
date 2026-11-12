@@ -59,11 +59,13 @@ RepoLens is a TypeScript monorepo with an Express API, a Chrome Manifest V3 exte
 - The extension stores up to 15 recent analyses in `chrome.storage.local`.
 - The website keeps a small recent-analysis history in the current browser. Website history is not synced with extension history.
 
-### Repository preview
+### Live website preview
 
-- The backend includes an optional Docker-based preview workflow for eligible static HTML and Vite projects.
-- Preview sessions are temporary and are cleaned up after their configured lifetime.
-- The preview feature requires a host with a working Docker daemon. A regular static-site deployment or serverless host generally cannot run this workflow.
+- After repository analysis, the website adds a **Live Website Preview** panel.
+- If RepoLens detects a published demo URL, the panel attempts to display it in an embedded frame and also provides an external link. Some sites block embedding; use the external link when that happens.
+- If no published demo is detected, users can request a source-based preview for supported static HTML and Vite repositories through the existing isolated Docker workflow.
+- Source-based preview sessions are temporary and cleaned up after their configured lifetime.
+- Source-based previews require a backend host with a working Docker daemon and a reachable preview URL. The current Render backend deployment does not provide the Docker/port-routing setup required for this workflow, so the source-build button may report that hosted preview is unavailable. Detected public demo links can still be opened independently.
 
 ## How it works
 
