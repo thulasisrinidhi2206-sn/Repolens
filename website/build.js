@@ -21,8 +21,8 @@ for (const filename of requiredFiles) {
 // Add the optional preview experience without changing the existing landing-page markup.
 const outputHtml = path.join(outputDir, 'index.html');
 let html = fs.readFileSync(outputHtml, 'utf8');
-html = html.replace('</head>', '  <link rel="stylesheet" href="preview.css">\\n</head>');
-html = html.replace('</body>', '  <script src="preview.js" defer></script>\\n</body>');
+html = html.replace('</head>', '  <link rel="stylesheet" href="preview.css">\n</head>');
+html = html.replace('</body>', '  <script src="preview.js" defer></script>\n</body>');
 fs.writeFileSync(outputHtml, html);
 fs.copyFileSync(path.join(sourceDir, 'preview.css'), path.join(outputDir, 'preview.css'));
 
