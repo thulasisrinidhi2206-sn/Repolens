@@ -128,11 +128,7 @@ flowchart TD
 
 ## 📸 Screenshots
 
-*(Replace placeholders with actual UI screenshots when extension is running)*
-
-| GitHub Page Button Injection | Analysis & Live Demo Modal |
-| :---: | :---: |
-| ![GitHub Button Placeholder](https://via.placeholder.com/600x350/0d1117/58a6ff?text=RepoLens+Button+Injected+in+GitHub+Header) | ![Analysis Modal Placeholder](https://via.placeholder.com/600x350/161b22/3fb950?text=RepoLens+Analysis+%26+Live+Demo+Modal) |
+Screenshots will be added after capturing the current deployed extension UI. The website landing page and live repository analyzer are separate from the Chrome extension interface.
 
 ---
 
@@ -140,8 +136,8 @@ flowchart TD
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18.0.0 or higher recommended, tested on Node v20/v24)
-- [npm](https://www.npmjs.com/) (v9.0.0 or higher)
+- [Node.js](https://nodejs.org/) (v20 or higher recommended)
+- [npm](https://www.npmjs.com/) (v9 or higher)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) *(Optional: only required for local containerized preview sandboxing)*
 
 ### 1. Clone & Install Dependencies
@@ -154,8 +150,14 @@ npm install
 
 ### 2. Configure Environment Variables
 
-Copy the example environment configuration into `backend/.env`:
+Copy the example environment configuration into `backend/.env`.
 
+**Windows PowerShell:**
+```powershell
+Copy-Item .env.example backend/.env
+```
+
+**macOS / Linux:**
 ```bash
 cp .env.example backend/.env
 ```
@@ -328,20 +330,26 @@ Platforms like **Render**, **Railway**, or **Fly.io** can host the Node.js backe
 1. **Push to GitHub**: Ensure your repository is committed and pushed to GitHub.
 2. **Deploy on Render / Railway**:
    - Create a new **Web Service** connected to your repository.
-   - **Build Command**: `npm ci && npm run build:shared && npm run build:backend`
+   - **Build Command**: `npm ci --include=dev && npm run build:shared && npm run build:backend`
    - **Start Command**: `node backend/dist/index.js`
    - **Health Check Path**: `/health`
 3. **Configure Environment Variables**:
    ```env
    NODE_ENV=production
-   PORT=3001
+   # Render and most hosting platforms provide PORT automatically.
+   # Set PORT=3001 only when your host specifically requires it.
    CORS_ORIGIN=*
    GITHUB_TOKEN=ghp_your_personal_access_token_here
    ```
 4. **Build Chrome Extension for Deployed Backend**:
-   Run the build script pointing to your deployed backend URL:
+   Build the extension from the repository root, pointing it to your deployed backend URL:
    ```bash
-   node extension/build.js --api-url=https://your-repolens-api.onrender.com
+   # PowerShell
+   $env:REPOLENS_API_URL="https://your-repolens-api.onrender.com"
+   npm run build:extension
+
+   # macOS / Linux
+   REPOLENS_API_URL=https://your-repolens-api.onrender.com npm run build:extension
    ```
    Load the resulting `extension/` folder in Chrome. The extension will now communicate directly with your live cloud backend!
 
@@ -350,6 +358,18 @@ Platforms like **Render**, **Railway**, or **Fly.io** can host the Node.js backe
 The visual preview functionality requires an environment capable of launching Docker containers (`docker run`). Standard PaaS tiers (Render, Railway free tier, Heroku) do not support Docker-in-Docker due to security restrictions.
 - To enable preview sandboxes in production, host the preview service on a dedicated Linux VPS (e.g. AWS EC2, DigitalOcean Droplet, or Hetzner) where the Docker daemon is accessible.
 - If Docker is not running, the backend cleanly responds with HTTP 503 explaining that Docker is unavailable on the host, while **all core repository analysis, architecture detection, and live demo detection features remain 100% operational**.
+
+
+### Deploy the standalone website
+
+The landing page is a separate Render Static Site. Configure it with:
+
+- **Branch:** `feature-improvements` (or the branch you deploy from)
+- **Root Directory:** `website`
+- **Build Command:** `npm run build`
+- **Publish Directory:** `dist`
+
+The website calls the deployed backend at `/api/analyze`. Update the `REPO_LENS_API` constant in `website/src/main.js` if your backend URL changes. The website does not need GitHub or Gemini secrets in its static-site environment.
 
 ---
 
@@ -374,4 +394,4 @@ The visual preview functionality requires an environment capable of launching Do
 
 ## 📄 License
 
-This project is licensed under the [MIT License](./package.json).
+This project is licensed under the [MIT License](./LICENSE).
