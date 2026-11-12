@@ -323,24 +323,83 @@ function renderDependencies(data) {
 
 function renderArchitecture(data) {
   const architecture = data.architecture || {};
-  const panel = makePanel('feature-architecture', 'Architecture Visualization', 'A repository map inferred from directory names, entry points and detected project technologies.');
+  const panel = makePanel('feature-architecture', 'Architecture Visualization', 'A connected diagram generated from the repository structure detected by RepoLens.');
   panel.append(makeGrid([['Files in tree', architecture.totalFilesCount ?? '—'], ['Directories', architecture.totalDirectoriesCount ?? '—'], ['Modules', architecture.majorModules?.length ?? 0]]));
-  const map = node('div', 'architecture-map');
-  const root = node('div', 'architecture-root');
-  addText(root, 'strong', '', (data.framework || data.projectType || 'Application') + ' application');
-  addText(root, 'span', '', 'Detected project root');
-  map.append(root);
-  const modules = node('div', 'architecture-modules');
-  (architecture.majorModules || []).forEach(module => {
-    const card = node('article', 'architecture-module');
-    addText(card, 'strong', '', module.name);
-    addText(card, 'code', '', module.path);
-    addText(card, 'span', '', module.role + ' · ' + module.fileCount + ' files');
-    modules.append(card);
+  const modules = (architecture.majorModules || []).slice(0, 10);
+  const diagram = node('div', 'architecture-diagram-wrap');
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  const columns = 2;
+  const rows = Math.max(1, Math.ceil(modules.length / columns));
+  const width = 760;
+  const rowHeight = 116;
+  const height = 112 + rows * rowHeight + 12;
+  svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Architecture diagram connecting the detected application root to repository modules');
+  svg.classList.add('architecture-diagram');
+
+  const makeSvg = (tag, attrs, textValue) => {
+    const el = document.createElementNS(svgNS, tag);
+    Object.entries(attrs || {}).forEach(([key, value]) => el.setAttribute(key, String(value)));
+    if (textValue !== undefined) el.textContent = String(textValue);
+    return el;
+  };
+  const rootX = width / 2;
+  const rootY = 18;
+  const rootW = 260;
+  const rootH = 62;
+  const rootBottom = rootY + rootH;
+  const rootTitle = (data.framework || data.projectType || 'Application') + ' application';
+
+  // Draw connectors first so they remain behind the diagram nodes.
+  modules.forEach((module, index) => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    const cardW = 330;
+    const cardX = col === 0 ? 35 : width - 35 - cardW;
+    const cardY = 126 + row * rowHeight;
+    const cardCenter = cardX + cardW / 2;
+    const startX = rootX + (cardCenter - rootX) * 0.45;
+    const path = makeSvg('path', {
+      d: 'M ' + rootX + ' ' + rootBottom + ' C ' + startX + ' ' + (rootBottom + 22) + ', ' + cardCenter + ' ' + (cardY - 24) + ', ' + cardCenter + ' ' + cardY,
+      class: 'architecture-edge',
+      'marker-end': 'url(#architecture-arrow)'
+    });
+    svg.append(path);
   });
-  if (!architecture.majorModules?.length) modules.append(node('p', 'empty-state', 'No major directories were detected.'));
-  map.append(modules);
-  panel.append(map);
+
+  const defs = makeSvg('defs', {});
+  const marker = makeSvg('marker', { id: 'architecture-arrow', viewBox: '0 0 10 10', refX: '8', refY: '5', markerWidth: '5', markerHeight: '5', orient: 'auto-start-reverse' });
+  marker.append(makeSvg('path', { d: 'M 0 0 L 10 5 L 0 10 z', class: 'architecture-arrow-head' }));
+  defs.append(marker);
+  svg.prepend(defs);
+
+  svg.append(makeSvg('rect', { x: rootX - rootW / 2, y: rootY, width: rootW, height: rootH, rx: 12, class: 'architecture-root-node' }));
+  svg.append(makeSvg('text', { x: rootX, y: rootY + 25, 'text-anchor': 'middle', class: 'architecture-root-title' }, rootTitle));
+  svg.append(makeSvg('text', { x: rootX, y: rootY + 44, 'text-anchor': 'middle', class: 'architecture-root-subtitle' }, 'Repository entry point'));
+
+  modules.forEach((module, index) => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    const cardW = 330;
+    const cardH = 78;
+    const cardX = col === 0 ? 35 : width - 35 - cardW;
+    const cardY = 126 + row * rowHeight;
+    svg.append(makeSvg('rect', { x: cardX, y: cardY, width: cardW, height: cardH, rx: 9, class: 'architecture-module-node' }));
+    svg.append(makeSvg('text', { x: cardX + 16, y: cardY + 24, class: 'architecture-node-title' }, module.name || module.path));
+    svg.append(makeSvg('text', { x: cardX + 16, y: cardY + 43, class: 'architecture-node-path' }, module.path));
+    svg.append(makeSvg('text', { x: cardX + 16, y: cardY + 62, class: 'architecture-node-meta' }, (module.role || 'Application module') + ' · ' + (module.fileCount ?? 0) + ' files'));
+  });
+
+  if (!modules.length) {
+    svg.append(makeSvg('text', { x: rootX, y: 145, 'text-anchor': 'middle', class: 'architecture-empty-label' }, 'No directory modules were detected in this repository sample.'));
+    svg.setAttribute('viewBox', '0 0 760 190');
+  }
+  diagram.append(svg);
+  const hint = node('p', 'architecture-diagram-hint', 'Each connector links the detected repository root to a module found in its file tree. This is a structural overview, not a runtime dependency trace.');
+  diagram.append(hint);
+  panel.append(diagram);
   appendStringList(panel, 'Entry points', architecture.entryPoints);
   appendStringList(panel, 'Configuration files', architecture.configFiles);
   return panel;
