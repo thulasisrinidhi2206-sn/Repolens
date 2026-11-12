@@ -1,0 +1,11 @@
+.live-preview-panel { grid-column: 1 / -1; }
+.live-preview-note, .live-preview-status { color: #9aa6c2; font-size: 9px; line-height: 1.7; }
+.live-preview-status { margin: 12px 0 0; }
+.live-preview-status.is-loading { color: #aeb8ed; }
+.live-preview-status.is-success { color: #82dcb2; }
+.live-preview-status.is-error { color: #ff9b9b; }
+.live-preview-actions { display: flex; flex-wrap: wrap; gap: 9px; margin: 12px 0; }
+.live-preview-actions button:disabled { cursor: wait; opacity: .65; }
+.live-preview-frame-wrap, .live-preview-built-frame { margin-top: 14px; overflow: hidden; border: 1px solid rgba(148, 163, 209, .2); border-radius: 9px; background: #080b14; }
+.live-preview-frame { display: block; width: 100%; height: min(68vh, 620px); min-height: 340px; border: 0; background: #fff; }
+@media (max-width: 600px) { .live-preview-frame { height: 65vh; min-height: 280px; } }
