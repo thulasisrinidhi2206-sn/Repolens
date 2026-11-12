@@ -1,397 +1,406 @@
-# RepoLens 🔍
+# RepoLens
 
-> **GitHub Visual Preview & Project Evaluation Platform**  
-> Inspect, evaluate, and launch sandboxed visual previews for any GitHub repository directly from your browser.
+**Analyze GitHub repositories from a Chrome extension or the RepoLens website.**
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?logo=typescript)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20%2B-green.svg?logo=node.js)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express-4.21-lightgrey.svg?logo=express)](https://expressjs.com/)
-[![Chrome Extension](https://img.shields.io/badge/Manifest-V3-orange.svg?logo=googlechrome)](https://developer.chrome.com/docs/extensions/)
-[![Docker](https://img.shields.io/badge/Docker-Sandboxed-blue.svg?logo=docker)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+RepoLens is a TypeScript monorepo with an Express API, a Chrome Manifest V3 extension, shared data contracts, and a standalone website. It inspects public GitHub repositories and presents project information, quality indicators, architecture, security checks, dependency checks, and code-review findings.
 
----
+- **Website:** https://repolens-lln8.onrender.com
+- **Backend health:** https://repolens-backend-gkdm.onrender.com/health
+- **Repository:** https://github.com/thulasisrinidhi2206-sn/Repolens
 
-## 📌 Overview
+> Analysis is heuristic and sample-based. It is intended to help explore a repository, not to certify code quality or security.
 
-**RepoLens** bridges the gap between static GitHub code repositories and interactive evaluation. When reviewing repositories, developers, hiring managers, and recruiters often struggle with clone-and-run friction or missing live deployments. 
+## Contents
 
-RepoLens injects contextual evaluation tools directly into GitHub repository pages via a Chrome Manifest V3 extension, providing:
-1. **Repository Analysis Dashboard**: Project metadata, a transparent weighted quality score, architecture, security and dependency findings, and code review.
-2. **Architecture Visualization**: A browser-rendered module graph plus Mermaid source, based on repository paths and entry points.
-3. **Security & Dependency Scanning**: Sampled secret/configuration checks and a deterministic offline advisory list.
-4. **AI-Assisted Code Review**: Optional Gemini review when configured on the backend, with a deterministic static analyzer fallback.
-5. **Reports & History**: Export Markdown/PDF reports and revisit the latest 15 repository analyses from the extension popup.
-6. **SSRF-Protected Live Demo Discovery**: Automated extraction and reachability validation of deployed demos from repository metadata and README files.
-7. **On-Demand Isolated Preview Sandbox**: Spawns ephemeral, read-only Docker containers (`nginx:alpine` and `node:20-alpine`) on localhost for eligible static and Vite/React projects.
+- [Features](#features)
+- [How it works](#how-it-works)
+- [Technology stack](#technology-stack)
+- [Repository structure](#repository-structure)
+- [Requirements](#requirements)
+- [Run locally](#run-locally)
+- [Build and test](#build-and-test)
+- [Chrome extension setup](#chrome-extension-setup)
+- [API reference](#api-reference)
+- [Deployment](#deployment)
+- [Configuration](#configuration)
+- [Known limitations](#known-limitations)
+- [License](#license)
 
----
+## Features
 
-## 🏗️ Architecture & Data Flow
+### Repository analysis
+
+- Accepts public GitHub repository URLs and supported branch URLs.
+- Detects project type and framework from repository metadata and files.
+- Reports repository information, sampled files, and analysis metrics.
+- Produces a heuristic code-quality score and summary.
+
+### Architecture insights
+
+- Detects likely project modules and entry points from repository structure.
+- Returns architecture information for the extension and website to visualize.
+- The diagram represents detected structure; it does not prove runtime dependencies or execution flow.
+
+### Security and dependency checks
+
+- Checks sampled source files and repository paths for selected exposed-secret patterns and risky constructs.
+- Inspects root `package.json` dependency declarations.
+- Includes a small, deterministic list of known dependency advisories.
+
+### Code review
+
+- Runs a deterministic static review.
+- Optional Gemini-assisted review is available when `GEMINI_API_KEY` is configured on the backend.
+- The API does not require a Gemini key to perform its core analysis.
+
+### Reports and history
+
+- The Chrome extension can download Markdown and PDF reports.
+- The extension stores up to 15 recent analyses in `chrome.storage.local`.
+- The website keeps a small recent-analysis history in the current browser. Website history is not synced with extension history.
+
+### Repository preview
+
+- The backend includes an optional Docker-based preview workflow for eligible static HTML and Vite projects.
+- Preview sessions are temporary and are cleaned up after their configured lifetime.
+- The preview feature requires a host with a working Docker daemon. A regular static-site deployment or serverless host generally cannot run this workflow.
+
+## How it works
 
 ```mermaid
 flowchart TD
-    subgraph Browser ["Client Browser / GitHub UI"]
-        EXT["Chrome Extension (Manifest V3)"]
-        MODAL["Contextual Analysis & Preview Modal"]
-        POPUP["RepoLens Extension Popup"]
-    end
-
-    subgraph Backend ["RepoLens Backend API (Node.js + Express)"]
-        API["REST API Router (/api)"]
-        RATE["Rate Limiter & Input Validator"]
-        ANALYZE["Analyze Service"]
-        DETECTOR["Project & Static Detector"]
-        SSRF["SSRF Guard & Safe HTTP Engine"]
-        PREVIEW["Preview Lifecycle Manager"]
-        CLEANUP["Cleanup & TTL Worker (10 min)"]
-    end
-
-    subgraph External ["External Services"]
-        GH["GitHub REST API (v3)"]
-        DEMO["Candidate Live Demos (Vercel/Netlify/Pages)"]
-    end
-
-    subgraph Sandbox ["Isolated Container Runtime"]
-        DOCKER["Docker Engine (Local Daemon)"]
-        BUILDER["Builder Container (node:20-alpine, --ignore-scripts)"]
-        SERVE["Serving Container (nginx:alpine, read-only, tmpfs)"]
-    end
-
-    EXT -->|Inject Preview Button| MODAL
-    MODAL -->|POST /api/analyze| API
-    MODAL -->|POST /api/preview| API
-    POPUP -->|GET /api/health| API
-
-    API --> RATE
-    RATE --> ANALYZE
-    RATE --> PREVIEW
-
-    ANALYZE --> GH
-    ANALYZE --> DETECTOR
-    ANALYZE --> SSRF
-    SSRF -->|Safe HEAD/GET (Private IP Blocked)| DEMO
-
-    PREVIEW --> DETECTOR
-    PREVIEW --> CLEANUP
-    PREVIEW --> DOCKER
-    DOCKER --> BUILDER
-    BUILDER --> SERVE
-    SERVE -->|http://localhost:31xxx| MODAL
+    U[User] --> W[RepoLens Website]
+    U --> E[Chrome Extension]
+    W -->|POST /api/analyze| API[Express Backend]
+    E -->|POST /api/analyze| API
+    API --> GH[GitHub API]
+    API --> D[Project and File Detection]
+    D --> Q[Quality Scoring]
+    D --> S[Security Scanner]
+    D --> DEP[Dependency Scanner]
+    D --> A[Architecture Analysis]
+    D --> R[Static or Optional Gemini Review]
+    API --> OUT[Analysis Response]
+    OUT --> W
+    OUT --> E
+    API -. optional .-> P[Docker Preview Workflow]
 ```
 
----
+The backend retrieves repository metadata and a bounded set of files from GitHub, runs the available analyzers, and returns a structured result. The website and extension render that result in their own interfaces.
 
-## 🌟 Key Features
+## Technology stack
 
-- **Contextual GitHub DOM Injection**: Non-intrusive "Preview Project" button automatically rendered in the GitHub repository action bar with Turbo/PJAX navigation support.
-- **Resilient Branch Selection**: Analyzes designated branches when navigating URLs such as `https://github.com/owner/repo/tree/feature/new-login` (handles multi-segment slashes and URL-encoded characters with default-branch fallback).
-- **Enterprise-Grade SSRF Protection**:
-  - DNS resolution validation preventing DNS rebinding attacks.
-  - Blocks loopback (`127.0.0.1`), RFC-1918 private IPv4 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), link-local metadata endpoints (`169.254.169.254`, `metadata.google.internal`), and private IPv6 (`::1`, `fc00::/7`, `fe80::/10`).
-  - Safe manual HTTP redirect inspection preventing redirect-based SSRF.
-  - Concurrency limiting (batches of 3) and 64KB response size cap.
-- **Resource & Download Constraints**:
-  - 5 MB maximum individual file download limit.
-  - 50 MB total workspace download cap.
-  - Maximum 500 files downloaded per repository to prevent disk exhaustion.
-  - Request timeouts on all external GitHub API operations.
-- **Sandboxed Docker Container Isolation**:
-  - `--security-opt=no-new-privileges`, `--cap-drop=ALL`, `--read-only` root filesystem.
-  - Ephemeral tmpfs mounts (`/tmp`, `/var/run`, `/var/cache/nginx`).
-  - CPU limit (`0.5 CPU`), Memory limit (`256 MB RAM`), PID limit (`64`).
-  - Container build runs `--ignore-scripts` to block malicious npm lifecycle hooks.
-  - Automatic 10-minute TTL cleanup and startup orphan container pruning.
-- **Rate Limiting & Production CORS**: Built-in sliding-window rate limiting on API endpoints and configurable CORS origins.
+| Area | Technologies |
+|---|---|
+| Language | TypeScript, JavaScript |
+| Backend | Node.js, Express |
+| Browser extension | Chrome Manifest V3, TypeScript, esbuild |
+| Website | Static HTML, CSS, JavaScript |
+| Shared contracts | TypeScript |
+| Preview workflow | Docker |
+| Tests | Node.js test runner via `tsx` |
 
-### Analysis coverage and limitations
+## Repository structure
 
-- Analysis is returned by `POST /api/analyze` and the extension keeps up to 15 recent results locally in `chrome.storage.local`.
-- Security and code review checks operate on a bounded sample of repository source files. Dependency advisories are an offline, deterministic list; they are not a live CVE or package-registry audit.
-- Gemini review is optional and requires a backend-only `GEMINI_API_KEY`. Without it, RepoLens labels and returns its static analyzer results instead.
-- Quality scores are heuristic repository-health indicators, not measured code coverage or a substitute for a professional security audit.
+```text
+Repolens/
+├── backend/
+│   ├── src/
+│   │   ├── controllers/
+│   │   ├── middlewares/
+│   │   ├── routes/
+│   │   └── services/
+│   ├── test/
+│   └── .env.example
+├── extension/
+│   ├── icons/
+│   ├── src/
+│   │   ├── background/
+│   │   ├── content/
+│   │   ├── popup/
+│   │   └── services/
+│   └── manifest.json
+├── shared/
+│   └── src/
+├── website/
+│   ├── src/
+│   ├── build.js
+│   └── server.js
+├── docs/
+├── package.json
+└── package-lock.json
+```
 
----
+## Requirements
 
-## 💻 Tech Stack
+- Node.js 20 or later recommended.
+- npm 9 or later.
+- Google Chrome to load the extension.
+- Docker Desktop or another Docker Engine only if you want to run repository preview sandboxes locally.
+- A GitHub personal access token is optional but recommended for higher GitHub API rate limits.
+- A Gemini API key is optional and only used for AI-assisted review.
 
-| Component | Technology | Rationale |
-| :--- | :--- | :--- |
-| **Monorepo** | npm Workspaces | Clean separation of concerns between `backend`, `extension`, and `shared`. |
-| **Backend API** | Node.js, Express, TypeScript | High-concurrency asynchronous I/O and typed domain models. |
-| **Extension** | Chrome Manifest V3, TypeScript, esbuild | Lightweight bundle without heavy frontend framework overhead. |
-| **Shared Contracts** | TypeScript Types & Interfaces | Single source of truth for request/response payloads. |
-| **Container Sandbox** | Docker Engine, Alpine Linux (`nginx`, `node`) | Complete process and filesystem isolation for untrusted repository code. |
-| **Testing** | Node.js Test Runner (`node:test`, `node:assert`) | Native TypeScript test runner execution with zero extra dependency bloat. |
+## Run locally
 
----
+### 1. Clone the project
 
-## 📸 Screenshots
-
-Screenshots will be added after capturing the current deployed extension UI. The website landing page and live repository analyzer are separate from the Chrome extension interface.
-
----
-
-## 🚀 Getting Started (Local Development)
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (v20 or higher recommended)
-- [npm](https://www.npmjs.com/) (v9 or higher)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) *(Optional: only required for local containerized preview sandboxing)*
-
-### 1. Clone & Install Dependencies
+The website and recent deployment work are on the `feature-improvements` branch:
 
 ```bash
-git clone https://github.com/thulasisrinidhi2206-sn/Repolens.git
+git clone --branch feature-improvements https://github.com/thulasisrinidhi2206-sn/Repolens.git
 cd Repolens
 npm install
 ```
 
-### 2. Configure Environment Variables
+### 2. Configure the backend
 
-Copy the example environment configuration into `backend/.env`.
+The example environment file is inside `backend/` (not in the repository root).
 
 **Windows PowerShell:**
+
 ```powershell
-Copy-Item .env.example backend/.env
+Copy-Item backend/.env.example backend/.env
 ```
 
 **macOS / Linux:**
+
 ```bash
-cp .env.example backend/.env
+cp backend/.env.example backend/.env
 ```
 
-Edit `backend/.env` as needed:
+Edit `backend/.env` if needed:
+
 ```env
 PORT=3001
 NODE_ENV=development
 CORS_ORIGIN=*
-# Optional: Increases GitHub API rate limits from 60 req/hr to 5,000 req/hr
-GITHUB_TOKEN=ghp_your_personal_access_token_here
+# Optional: increases the GitHub API rate limit
+GITHUB_TOKEN=your_github_token
+# Optional: enables Gemini-assisted review
+# GEMINI_API_KEY=your_gemini_api_key
 ```
 
-### 3. Build All Monorepo Packages
+Do not commit `backend/.env`, and never put API keys in the website or extension source.
+
+### 3. Start the backend
+
+From the repository root:
 
 ```bash
-npm run build
-```
-
-Or build individual workspaces:
-```bash
-npm run build:shared     # Build shared contracts
-npm run build:backend    # Compile backend TypeScript to dist/
-npm run build:extension  # Bundle Chrome extension via esbuild
-```
-
-### 4. Run the Backend API
-
-```bash
-# Development mode with hot-reloading
 npm run dev:backend
-
-# Production mode
-npm run start:backend
 ```
 
-The backend API will start at `http://localhost:3001`. Verify it by visiting `http://localhost:3001/health`.
+The API listens on `http://localhost:3001`. Check:
 
-### 5. Install the Chrome Extension
+```text
+http://localhost:3001/health
+```
 
-1. Open Google Chrome and navigate to `chrome://extensions/`.
-2. Enable the **Developer mode** toggle in the top-right corner.
-3. Click **Load unpacked**.
-4. Select the `extension/` directory from the RepoLens root.
-5. Navigate to any GitHub repository (e.g. `https://github.com/facebook/react`) to see the **RepoLens** button in the repository header.
+### 4. Start the website
 
-### Run the standalone landing page
-
-The static landing page is in `website/` and does not depend on the backend, extension, or a production localhost URL. From the repository root:
+Open a second terminal at the repository root:
 
 ```bash
 npm run dev:website
 ```
 
-Open the printed local development URL (default `http://127.0.0.1:4173`). To build the deployable static site:
+Open the local URL printed by the command (the default is `http://127.0.0.1:4173`). The website is static and calls the backend URL configured in `website/src/main.js`; set that URL to your local backend when developing locally if it currently points to the deployed API.
+
+## Build and test
+
+Run all package builds:
 
 ```bash
+npm run build
+```
+
+Build individual workspaces:
+
+```bash
+npm run build:shared
+npm run build:backend
+npm run build:extension
 npm run build:website
 ```
 
-Publish `website/dist/` as the site root on a static host. The site has no runtime package dependencies. The dashboard illustrations are explicitly labeled and do not represent a live analysis or product screenshot.
-
----
-
-## 🧪 Running Automated Tests
-
-RepoLens includes a unit and integration test suite covering:
-- GitHub URL parsing and branch extraction.
-- SSRF prevention, private IP CIDR filtering, and redirect validation.
-- Project detection (Vite with/without config, React, Next.js, Node.js, Python, Static HTML).
-- Static preview eligibility and file filtering.
-- GitHub API error handling (distinguishing 404 from rate limit / network errors).
-- Preview session lifecycle, log sanitization, and expiration.
-- API endpoints and input validation.
-- Quality scoring, security/dependency scanners, architecture analysis, and sampled static review.
-- Extension-to-backend analysis requests, dashboard rendering, extension history storage, and Markdown/PDF report output.
-
-Run the test suite:
+Run the backend test suite:
 
 ```bash
 npm test
 ```
 
----
+The root `npm test` script runs the backend tests. It does not run a separate website or browser end-to-end test suite.
 
-## 📖 API Documentation
+## Chrome extension setup
 
-### 1. Health Check
-- **Endpoint**: `GET /health` or `GET /api/health`
-- **Description**: Verifies operational status and uptime.
-- **Response**:
+1. Build the shared package and extension from the repository root:
+
+   ```bash
+   npm run build:shared
+   npm run build:extension
+   ``
+
+2. For a deployed backend, set its URL before building.
+
+   **Windows PowerShell:**
+
+   ```powershell
+   $env:REPOLENS_API_URL="https://your-backend.onrender.com"
+   npm run build:extension
+   ```
+
+   **macOS / Linux:**
+
+   ```bash
+   REPOLENS_API_URL=https://your-backend.onrender.com npm run build:extension
+   ```
+
+3. Open `chrome://extensions` in Chrome.
+4. Enable **Developer mode**.
+5. Click **Load unpacked** and select the repository's `extension/` directory.
+6. Open a public GitHub repository and use the RepoLens interface.
+
+After rebuilding, click the extension's reload icon on `chrome://extensions`.
+
+## API reference
+
+The backend mounts its API routes under `/api`.
+
+### Health
+
+```http
+GET /health
+GET /api/health
+```
+
+Returns service health and runtime information.
+
+### Analyze a repository
+
+```http
+POST /api/analyze
+Content-Type: application/json
+```
+
+Request:
+
+```json
+{
+  "repositoryUrl": "https://github.com/facebook/react"
+}
+```
+
+A successful response uses the common API envelope:
+
 ```json
 {
   "success": true,
   "data": {
-    "status": "healthy",
-    "service": "repolens-backend",
-    "uptime": 14.52,
-    "environment": "development"
-  },
-  "timestamp": "2026-11-06T16:50:00.000Z"
-}
-```
-
-### 2. Analyze Repository
-- **Endpoint**: `POST /api/analyze`
-- **Description**: Analyzes repository architecture, dependencies, files, and locates live demos.
-- **Request Body**:
-```json
-{
-  "repositoryUrl": "https://github.com/owner/repository"
-}
-```
-- **Response**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "e2c34d4a-3fb7-495c-9c71-248384f50f24",
+    "id": "analysis-id",
     "repo": {
-      "owner": "owner",
-      "repo": "repository",
+      "owner": "facebook",
+      "repo": "react",
       "branch": "main"
     },
-    "projectType": "Vite",
-    "framework": "React (Vite)",
-    "confidence": 1.0,
-    "demo": {
-      "hasDemo": true,
-      "primaryDemoUrl": "https://example.vercel.app",
-      "candidates": [...]
-    },
-    "status": "completed"
-  }
+    "projectType": "detected-project-type",
+    "framework": "detected-framework"
+  },
+  "timestamp": "ISO-8601 timestamp"
 }
 ```
 
-### 3. Create Sandbox Preview
-- **Endpoint**: `POST /api/preview`
-- **Description**: Downloads repository source, performs containerized build (if Vite), and starts isolated Nginx container.
-- **Request Body**:
+The actual `data` object contains additional fields depending on the repository and analysis results. Error responses use `success: false` and an `error` message.
+
+### Create a repository preview
+
+```http
+POST /api/preview
+Content-Type: application/json
+```
+
+Request:
+
 ```json
 {
   "repositoryUrl": "https://github.com/owner/repository"
 }
 ```
-- **Response (201 Created)**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "preview-uuid",
-    "status": "ready",
-    "previewUrl": "http://localhost:31450",
-    "expiresAt": "2026-11-06T17:00:00.000Z"
-  }
-}
+
+This endpoint requires an eligible repository and a working Docker daemon on the backend host. It can return `503` when Docker is unavailable.
+
+### Check or stop a preview
+
+```http
+GET /api/preview/{previewId}
+DELETE /api/preview/{previewId}
 ```
 
----
+Preview session state is held by the running backend process; it is not a persistent, distributed preview store.
 
-## ☁️ Production Deployment Guide
+## Deployment
 
-Deploying RepoLens for live demonstrations and portfolio use is organized into two stages:
+### Backend on Render
 
-### Phase 1: Deploy Core Analysis Backend (Recommended & Immediate)
+Create a Render **Web Service** connected to this repository and select the branch you want to deploy.
 
-Platforms like **Render**, **Railway**, or **Fly.io** can host the Node.js backend:
+| Setting | Value |
+|---|---|
+| Runtime | Node |
+| Branch | `feature-improvements` |
+| Root Directory | Leave blank |
+| Build Command | `npm ci --include=dev && npm run build:shared && npm run build:backend` |
+| Start Command | `node backend/dist/index.js` |
+| Health Check Path | `/health` |
 
-1. **Push to GitHub**: Ensure your repository is committed and pushed to GitHub.
-2. **Deploy on Render / Railway**:
-   - Create a new **Web Service** connected to your repository.
-   - **Build Command**: `npm ci --include=dev && npm run build:shared && npm run build:backend`
-   - **Start Command**: `node backend/dist/index.js`
-   - **Health Check Path**: `/health`
-3. **Configure Environment Variables**:
-   ```env
-   NODE_ENV=production
-   # Render and most hosting platforms provide PORT automatically.
-   # Set PORT=3001 only when your host specifically requires it.
-   CORS_ORIGIN=*
-   GITHUB_TOKEN=ghp_your_personal_access_token_here
-   ```
-4. **Build Chrome Extension for Deployed Backend**:
-   Build the extension from the repository root, pointing it to your deployed backend URL:
-   ```bash
-   # PowerShell
-   $env:REPOLENS_API_URL="https://your-repolens-api.onrender.com"
-   npm run build:extension
+Configure these environment variables in Render:
 
-   # macOS / Linux
-   REPOLENS_API_URL=https://your-repolens-api.onrender.com npm run build:extension
-   ```
-   Load the resulting `extension/` folder in Chrome. The extension will now communicate directly with your live cloud backend!
+- `NODE_ENV=production`
+- `CORS_ORIGIN=*` (for a permissive demo setup; restrict this to trusted origins before production use)
+- `GITHUB_TOKEN` (optional but recommended)
+- `GEMINI_API_KEY` (optional)
 
-### Phase 2: Isolated Container Sandbox Deployment (Optional Future Phase)
+Render supplies the `PORT` environment variable. Do not commit or share secret values.
 
-The visual preview functionality requires an environment capable of launching Docker containers (`docker run`). Standard PaaS tiers (Render, Railway free tier, Heroku) do not support Docker-in-Docker due to security restrictions.
-- To enable preview sandboxes in production, host the preview service on a dedicated Linux VPS (e.g. AWS EC2, DigitalOcean Droplet, or Hetzner) where the Docker daemon is accessible.
-- If Docker is not running, the backend cleanly responds with HTTP 503 explaining that Docker is unavailable on the host, while **all core repository analysis, architecture detection, and live demo detection features remain 100% operational**.
+### Website on Render
 
+Create a separate Render **Static Site**:
 
-### Deploy the standalone website
+| Setting | Value |
+|---|---|
+| Branch | `feature-improvements` |
+| Root Directory | `website` |
+| Build Command | `npm run build` |
+| Publish Directory | `dist` |
 
-The landing page is a separate Render Static Site. Configure it with:
+The website calls the backend endpoint configured in `website/src/main.js`. If the backend URL changes, update that constant and redeploy the static site. The static site does not need the GitHub or Gemini secret keys.
 
-- **Branch:** `feature-improvements` (or the branch you deploy from)
-- **Root Directory:** `website`
-- **Build Command:** `npm run build`
-- **Publish Directory:** `dist`
+### Preview deployment note
 
-The website calls the deployed backend at `/api/analyze`. Update the `REPO_LENS_API` constant in `website/src/main.js` if your backend URL changes. The website does not need GitHub or Gemini secrets in its static-site environment.
+The deployed analysis API can run without Docker. The optional preview endpoints need Docker access on the backend host. If the host cannot access a Docker daemon, preview creation will return an unavailable response; repository analysis remains separate.
 
----
+## Configuration
 
-## ⚠️ Known Limitations
+| Variable | Required | Purpose |
+|---|---|---|
+| `PORT` | No | Backend listening port; defaults to 3001 locally. |
+| `NODE_ENV` | No | Runtime environment. |
+| `CORS_ORIGIN` | No | Allowed website origins; configure narrowly for production. |
+| `GITHUB_TOKEN` | No | Authenticated GitHub API access and higher rate limits. |
+| `GEMINI_API_KEY` | No | Optional Gemini-assisted code review. |
+| `REPOLENS_API_URL` | Build-time for extension | Backend URL embedded when building the extension. |
 
-1. **Docker Daemon Dependency for Previews**: Visual preview sandboxes require Docker on the host. When deployed on standard serverless or PaaS environments without Docker, repository analysis functions normally, while the preview button displays a helpful status message.
-2. **Preview Framework Scope**: Visual preview generation currently supports **Static HTML/CSS/JS** and **Vite / React-Vite** projects. Full server-side rendering frameworks (Next.js SSR, Nuxt, Django) are intentionally classified and reported, with containerized preview support planned for subsequent releases.
-3. **GitHub Unauthenticated Rate Limits**: GitHub limits anonymous API requests to 60/hour. Configuring a personal access token (`GITHUB_TOKEN`) increases this limit to 5,000/hour.
-4. **Heuristic Scan Coverage**: Security and static code-review rules inspect only sampled files. Dependency findings use a small offline advisory list, not a live vulnerability database, and can miss newly disclosed or transitive issues.
-5. **Optional AI Review**: Gemini-powered review is available only when `GEMINI_API_KEY` is configured on the backend; otherwise the static review is used.
+## Known limitations
 
----
+- Analysis uses bounded file sampling; it does not inspect every line of every repository.
+- Quality scores are heuristic indicators, not formal quality measurements.
+- Security checks use selected patterns and cannot guarantee that a repository is secure.
+- Dependency advisories come from a small offline list, not a live vulnerability database or complete transitive dependency audit.
+- Gemini review is optional. Without a configured key, the static analyzer is used.
+- Architecture diagrams show inferred repository structure, not guaranteed runtime call relationships.
+- Docker previews support eligible static HTML and Vite projects; other frameworks may be detected but are not necessarily previewable.
+- Preview sessions are temporary and depend on the backend process and Docker host.
+- The website and Chrome extension maintain separate browser-local history.
 
-## 🗺️ Roadmap & Future Enhancements
+## License
 
-- [ ] Support containerized SSR previews for Next.js and Nuxt applications.
-- [ ] Integrate a maintained live dependency vulnerability database and expand static security analysis.
-- [ ] Add pull-request review workflows and broader source-aware analysis beyond the bounded sample.
-- [ ] Firefox and Safari extension porting.
-
----
-
-## 📄 License
-
-This project is licensed under the [MIT License](./LICENSE).
+Distributed under the MIT License. See [LICENSE](LICENSE).
