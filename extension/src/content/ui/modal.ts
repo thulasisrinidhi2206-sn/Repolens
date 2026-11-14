@@ -112,6 +112,85 @@ export function updateModalToSuccess(repo: RepoInfo, data: AnalyzeRepoData): voi
     }
   });
 
+
+  const issueForm = dialog.querySelector<HTMLFormElement>('#repolens-issue-navigator-form');
+  const issueInput = dialog.querySelector<HTMLInputElement>('#repolens-issue-navigator-input');
+  const issueButton = dialog.querySelector<HTMLButtonElement>('#repolens-issue-navigator-submit');
+  const issueStatus = dialog.querySelector<HTMLElement>('#repolens-issue-navigator-status');
+  const issueResults = dialog.querySelector<HTMLElement>('#repolens-issue-navigator-results');
+  issueForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const value = issueInput?.value.trim() || '';
+    const issueUrlMatch = value.match(/^https?:\\/\\/github\\.com\\/([^/]+)\\/([^/]+)\\/issues\\/(\\d+)(?:[/?#].*)?$/i);
+    const issueNumber = issueUrlMatch ? Number(issueUrlMatch[3]) : /^\\d+$/.test(value) ? Number(value) : NaN;
+    if (!issueButton || !issueStatus || !issueResults) return;
+    if (!Number.isSafeInteger(issueNumber) || issueNumber < 1) {
+      issueStatus.textContent = 'Enter a positive issue number or a GitHub issue URL for this repository.';
+      return;
+    }
+    if (issueUrlMatch && (issueUrlMatch[1].toLowerCase() + '/' + issueUrlMatch[2].replace(/\\.git$/i, '').toLowerCase()) !== repo.fullRepo.toLowerCase()) {
+      issueStatus.textContent = 'The issue URL must belong to the repository currently being analyzed.';
+      return;
+    }
+    issueButton.disabled = true;
+    issueButton.textContent = 'Investigating…';
+    issueStatus.textContent = 'Reading the issue and matching repository source files…';
+    issueResults.replaceChildren();
+    issueResults.hidden = true;
+    try {
+      const response = await apiClient.investigateIssue(repo.url, issueNumber);
+      const result = response.data;
+      if (!result) throw new Error(response.error || 'No investigation result was returned.');
+      const title = document.createElement('h3');
+      title.textContent = '#' + result.issue.number + ' · ' + result.issue.title;
+      issueResults.appendChild(title);
+      const summary = document.createElement('p');
+      summary.textContent = result.summary;
+      issueResults.appendChild(summary);
+      const issueLink = document.createElement('a');
+      issueLink.href = result.issue.url;
+      issueLink.target = '_blank';
+      issueLink.rel = 'noopener noreferrer';
+      issueLink.textContent = 'Open original GitHub issue';
+      issueResults.appendChild(issueLink);
+      const matchesHeading = document.createElement('h4');
+      matchesHeading.textContent = 'Relevant source files';
+      issueResults.appendChild(matchesHeading);
+      result.matches.forEach((match) => {
+        const card = document.createElement('article');
+        card.className = 'repolens-issue-match';
+        const link = document.createElement('a');
+        link.href = match.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = match.path + ' · lines ' + match.startLine + '-' + match.endLine;
+        const meta = document.createElement('p');
+        meta.textContent = 'Relevance ' + match.relevance + '/99 · ' + match.reason;
+        const excerpt = document.createElement('pre');
+        excerpt.textContent = match.excerpt;
+        card.append(link, meta, excerpt);
+        issueResults.appendChild(card);
+      });
+      const stepsHeading = document.createElement('h4');
+      stepsHeading.textContent = 'Suggested investigation steps';
+      issueResults.appendChild(stepsHeading);
+      const steps = document.createElement('ol');
+      result.investigationSteps.forEach(step => {
+        const item = document.createElement('li');
+        item.textContent = step;
+        steps.appendChild(item);
+      });
+      issueResults.appendChild(steps);
+      issueStatus.textContent = result.engine + ' · ' + result.filesInspected + ' files inspected · candidate matches, not confirmed root causes';
+      issueResults.hidden = false;
+    } catch (error) {
+      issueStatus.textContent = error instanceof Error ? error.message : 'Unable to investigate this issue.';
+    } finally {
+      issueButton.disabled = false;
+      issueButton.textContent = 'Investigate Issue';
+    }
+  });
+
   // Handle "Launch Sandbox Preview" button click
   // Handle source preview creation
   if (launchPreviewBtn) {
@@ -638,6 +717,19 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
       </div>
 
       ${renderDashboardSections(data)}
+
+
+      <section class="repolens-issue-navigator" aria-labelledby="repolens-issue-navigator-title">
+        <div class="repolens-section-title"><span id="repolens-issue-navigator-title">Issue-to-Code Navigator</span></div>
+        <p class="repolens-ask-hint">Paste a GitHub issue URL or enter its issue number to find relevant source files and investigation steps.</p>
+        <form id="repolens-issue-navigator-form">
+          <label class="repolens-ask-label" for="repolens-issue-navigator-input">GitHub issue URL or number</label>
+          <input id="repolens-issue-navigator-input" type="text" inputmode="url" maxlength="500" placeholder="https://github.com/owner/repo/issues/42 or 42" required />
+          <button type="submit" class="repolens-modal-btn-primary" id="repolens-issue-navigator-submit">Investigate Issue</button>
+        </form>
+        <p class="repolens-ask-status" id="repolens-issue-navigator-status" role="status" aria-live="polite"></p>
+        <div id="repolens-issue-navigator-results" class="repolens-issue-navigator-results" hidden></div>
+      </section>
 
       <section class="repolens-ask-repository" aria-labelledby="repolens-ask-title">
         <div class="repolens-section-title"><span>Ask Your Repository</span></div>
