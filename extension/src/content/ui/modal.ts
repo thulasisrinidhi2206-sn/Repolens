@@ -70,6 +70,44 @@ export function updateModalToSuccess(repo: RepoInfo, data: AnalyzeRepoData): voi
     });
   }
 
+  const askForm = dialog.querySelector<HTMLFormElement>('#repolens-ask-repository-form');
+  const askInput = dialog.querySelector<HTMLTextAreaElement>('#repolens-ask-repository-question');
+  const askButton = dialog.querySelector<HTMLButtonElement>('#repolens-ask-repository-submit');
+  const askStatus = dialog.querySelector<HTMLElement>('#repolens-ask-repository-status');
+  const askAnswer = dialog.querySelector<HTMLElement>('#repolens-ask-repository-answer');
+  askForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const question = askInput?.value.trim() || '';
+    if (!question || !askButton || !askStatus || !askAnswer) return;
+    askButton.disabled = true;
+    askButton.textContent = 'Thinking…';
+    askStatus.textContent = 'Reading relevant repository files…';
+    askAnswer.replaceChildren();
+    try {
+      const response = await apiClient.askRepository(repo.url, question);
+      const result = response.data;
+      if (!result) throw new Error(response.error || 'No answer was returned.');
+      askAnswer.textContent = result.answer;
+      const citations = document.createElement('div');
+      citations.className = 'repolens-ask-citations';
+      result.citations.forEach((citation) => {
+        const link = document.createElement('a');
+        link.href = citation.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = `${citation.path} · lines ${citation.startLine}-${citation.endLine}`;
+        citations.appendChild(link);
+      });
+      askAnswer.appendChild(citations);
+      askStatus.textContent = `${result.engine} · ${result.filesConsulted} files consulted${result.isAiPowered ? '' : ' · evidence-only fallback'}`;
+    } catch (error) {
+      askStatus.textContent = error instanceof Error ? error.message : 'Unable to answer this question.';
+    } finally {
+      askButton.disabled = false;
+      askButton.textContent = 'Ask RepoLens';
+    }
+  });
+
   // Handle "Launch Sandbox Preview" button click
   if (launchPreviewBtn) {
     launchPreviewBtn.addEventListener('click', () => {
@@ -496,6 +534,18 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
       </div>
 
       ${renderDashboardSections(data)}
+
+      <section class="repolens-ask-repository" aria-labelledby="repolens-ask-title">
+        <div class="repolens-section-title"><span>Ask Your Repository</span></div>
+        <p class="repolens-ask-hint" id="repolens-ask-title">Ask about files, functions, routes, architecture, or setup. Answers include links to source evidence.</p>
+        <form id="repolens-ask-repository-form">
+          <label class="repolens-ask-label" for="repolens-ask-repository-question">Your question</label>
+          <textarea id="repolens-ask-repository-question" rows="2" maxlength="500" minlength="5" placeholder="Where is authentication handled?" required></textarea>
+          <button type="submit" class="repolens-modal-btn-primary" id="repolens-ask-repository-submit">Ask RepoLens</button>
+        </form>
+        <p class="repolens-ask-status" id="repolens-ask-repository-status" role="status" aria-live="polite"></p>
+        <div class="repolens-ask-answer" id="repolens-ask-repository-answer"></div>
+      </section>
 
       <!-- Footer Callout -->
       <div class="repolens-info-callout">
