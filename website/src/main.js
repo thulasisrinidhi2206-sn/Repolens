@@ -113,7 +113,7 @@ previewForm?.addEventListener('submit', async event => {
   const progressMessages = [
     'Checking the GitHub repository and preview support…',
     'Downloading repository files…',
-    'Building the project in an isolated container…',
+    'Preparing the repository preview…',
     'Starting the temporary preview server…'
   ];
   let progressIndex = 0;
