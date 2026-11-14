@@ -69,29 +69,20 @@ export class StaticPreviewHandler implements IPreviewHandler {
       );
     }
 
-    // 3. Ensure entry index.html is present in the root of the workspace
-    const rootIndex = path.join(workspacePath, 'index.html');
-    try {
-      await fs.access(rootIndex);
-    } catch {
-      // Look for candidate index.html in subfolders (e.g. public/index.html or dist/index.html)
-      const candidates = ['public/index.html', 'src/index.html', 'dist/index.html'];
-      for (const candidate of candidates) {
-        const candidatePath = path.join(workspacePath, candidate);
-        try {
-          await fs.access(candidatePath);
-          await fs.copyFile(candidatePath, rootIndex);
-          break;
-        } catch {
-          // Continue searching
-        }
+    // 3. Verify an entry point exists. Keep its original directory intact so relative
+    // asset paths (for example dist/assets/*) continue to resolve correctly.
+    const candidates = ['index.html', 'public/index.html', 'src/index.html', 'dist/index.html'];
+    let entryFound = false;
+    for (const candidate of candidates) {
+      try {
+        await fs.access(path.join(workspacePath, candidate));
+        entryFound = true;
+        break;
+      } catch {
+        // Try the next supported entry location.
       }
     }
-
-    // Final verification
-    try {
-      await fs.access(rootIndex);
-    } catch {
+    if (!entryFound) {
       throw new Error('Static preview workspace preparation failed: index.html is missing.');
     }
   }
