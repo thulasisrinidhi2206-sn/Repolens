@@ -11,6 +11,22 @@ import {
 } from '@repolens/shared';
 import { CONFIG } from '../config';
 
+export interface AskRepositoryCitation {
+  path: string;
+  startLine: number;
+  endLine: number;
+  url: string;
+}
+export interface AskRepositoryData {
+  repository: string;
+  branch: string;
+  answer: string;
+  citations: AskRepositoryCitation[];
+  engine: string;
+  isAiPowered: boolean;
+  filesConsulted: number;
+}
+
 export class ApiClient {
   private baseUrl: string;
 
@@ -167,6 +183,34 @@ export class ApiClient {
     });
     const data: ApiResponse<CreatePreviewData> = await response.json();
     return data;
+  }
+
+  /**
+   * Ask a question grounded in the selected public GitHub repository.
+   */
+  public async askRepository(repositoryUrl: string, question: string): Promise<ApiResponse<AskRepositoryData>> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+    try {
+      const response = await fetch(`${this.baseUrl}/api/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ repositoryUrl, question }),
+        signal: controller.signal,
+      });
+      const data: ApiResponse<AskRepositoryData> = await response.json();
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || `Repository question failed (HTTP ${response.status}).`);
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Repository question timed out. Please try again.');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   /**
