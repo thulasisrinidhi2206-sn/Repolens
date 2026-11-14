@@ -53,6 +53,12 @@ const analysisResults = document.querySelector('#analysis-results');
 const REPO_LENS_API = 'https://repolens-backend-gkdm.onrender.com';
 const HISTORY_KEY = 'repolens.web.analysis-history.v1';
 let activeAnalysis = null;
+const askRepositoryForm = document.querySelector('#ask-repository-form');
+const askRepositoryInput = document.querySelector('#ask-repository-question');
+const askRepositoryButton = document.querySelector('#ask-repository-button');
+const askRepositoryStatus = document.querySelector('#ask-repository-status');
+const askRepositoryAnswer = document.querySelector('#ask-repository-answer');
+let activeQuestionRepositoryUrl = null;
 
 function normalizeGitHubRepositoryUrl(value) {
   const trimmed = value.trim();
@@ -634,12 +640,7 @@ if (analysisResults && getHistory().length) {
 }
 
 /* Ask Your Repository — questions are answered by the backend using repository source evidence. */
-const askRepositoryForm = document.querySelector('#ask-repository-form');
-const askRepositoryInput = document.querySelector('#ask-repository-question');
-const askRepositoryButton = document.querySelector('#ask-repository-button');
-const askRepositoryStatus = document.querySelector('#ask-repository-status');
-const askRepositoryAnswer = document.querySelector('#ask-repository-answer');
-let activeQuestionRepositoryUrl = null;
+
 
 function renderRepositoryAnswer(result) {
   askRepositoryAnswer.replaceChildren();
