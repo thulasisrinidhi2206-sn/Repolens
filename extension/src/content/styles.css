@@ -846,3 +846,47 @@ body.repolens-modal-open {
     min-height: 240px;
   }
 }
+
+
+/* Issue-to-Code Navigator */
+.repolens-issue-navigator {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid var(--borderColor-default, #30363d);
+  border-radius: 10px;
+  background: var(--bgColor-muted, rgba(110,118,129,.08));
+}
+.repolens-issue-navigator input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  color: var(--fgColor-default, #e6edf3);
+  background: var(--bgColor-default, #0d1117);
+  border: 1px solid var(--borderColor-default, #30363d);
+  border-radius: 6px;
+}
+.repolens-issue-navigator-results { margin-top: 14px; }
+.repolens-issue-navigator-results h3,
+.repolens-issue-navigator-results h4 { margin: 14px 0 8px; }
+.repolens-issue-navigator-results a { color: var(--fgColor-accent, #58a6ff); }
+.repolens-issue-match {
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid var(--borderColor-default, #30363d);
+  border-radius: 8px;
+}
+.repolens-issue-match p { margin: 6px 0; color: var(--fgColor-muted, #8b949e); font-size: 12px; }
+.repolens-issue-match pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--bgColor-default, #0d1117);
+  font-size: 12px;
+}
+.repolens-issue-navigator-results ol { padding-left: 22px; }
+.repolens-issue-navigator-results li { margin: 7px 0; }
