@@ -41,7 +41,7 @@ export class PreviewController {
 
     const previewId = Array.isArray(req.params.previewId) ? req.params.previewId[0] : req.params.previewId;
     const session = previewManagerService.getSession(previewId);
-    if (!session || (session.status !== 'ready' && session.status !== 'running') || !session.port) {
+    if (!session || (session.status !== 'ready' && session.status !== 'running')) {
       sendError(res, 'Preview session not found or no longer running.', 404);
       return;
     }
@@ -52,6 +52,10 @@ export class PreviewController {
     const staticWorkspace = previewManagerService.getWorkspacePath(previewId);
     if (staticWorkspace) {
       await this.serveStaticWorkspace(req, res, previewId, staticWorkspace, relativePath);
+      return;
+    }
+    if (!session.port) {
+      sendError(res, 'Preview session not found or no longer running.', 404);
       return;
     }
     const normalizedPath = relativePath.replace(/\\/g, '/');
@@ -128,7 +132,7 @@ export class PreviewController {
   ): Promise<void> {
     const normalized = relativePath.replace(/\\/g, '/').replace(/^\/+/, '');
     const segments = normalized.split('/');
-    if (normalized.includes('\\0') || segments.some(segment => segment === '.' || segment === '..')) {
+    if (normalized.includes('\0') || segments.some(segment => segment === '.' || segment === '..')) {
       sendError(res, 'Invalid preview content path.', 400);
       return;
     }
@@ -185,7 +189,7 @@ export class PreviewController {
       if (extension === '.html' || extension === '.htm') {
         content = rewritePreviewHtml(content.toString('utf8'), prefix);
       } else if (extension === '.css') {
-        content = content.toString('utf8').replace(/(url\\(\\s*["']?)\\/(?!\\/)/gi, `$1${prefix}`);
+        content = content.toString('utf8').replace(/(url\(\s*["']?)\/(?!\/)/gi, `$1${prefix}`);
       }
 
       res.setHeader('Content-Type', contentType);
