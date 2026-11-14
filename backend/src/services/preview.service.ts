@@ -36,7 +36,7 @@ export class PreviewService {
   /**
    * Generates an isolated, sandboxed preview for an eligible GitHub repository (Static or Vite)
    */
-  public async createPreview(rawUrl: string): Promise<PreviewServiceResult> {
+  public async createPreview(rawUrl: string, publicApiBaseUrl?: string): Promise<PreviewServiceResult> {
     // 1. Validate GitHub Repository URL
     const validation: ValidationResult = GitHubUrlValidatorService.validateAndParse(rawUrl);
 
@@ -143,12 +143,16 @@ export class PreviewService {
     }
 
     // 7. Check Container Runtime Availability (Docker)
-    const isDockerReady = await dockerRuntimeService.isAvailable();
-    if (!isDockerReady) {
+    const dockerStatus = await dockerRuntimeService.checkAvailability();
+    if (!dockerStatus.available) {
+      const errorMsg = dockerStatus.details
+        ? `Docker container runtime is currently unavailable on the host system: ${dockerStatus.details}`
+        : (dockerStatus.error || 'Docker container runtime is currently unavailable on the host system. Please ensure the Docker daemon is running.');
+
       return {
         success: false,
         statusCode: 503,
-        error: 'Docker container runtime is currently unavailable on the host system. Please ensure the Docker daemon is running.',
+        error: errorMsg,
         errorType: 'DOCKER_UNAVAILABLE',
       };
     }
@@ -203,6 +207,7 @@ export class PreviewService {
       previewManagerService.appendLog(previewId, `Creating isolated Docker serving container on localhost:${hostPort}...`);
 
       const containerResult = await dockerRuntimeService.startStaticContainer(containerOptions);
+      const previewUrl = `${(publicApiBaseUrl || process.env.PREVIEW_PUBLIC_BASE_URL || process.env.PUBLIC_API_URL || `http://localhost:${process.env.PORT || 3001}`).replace(/\/+$/, '')}/api/preview/${encodeURIComponent(previewId)}/content/`;
 
       console.log(`[PreviewLifecycle:ContainerCreated] Container ${containerResult.containerId} created for session ${previewId}`);
       previewManagerService.appendLog(previewId, `Container ${containerResult.containerId} created.`);
@@ -210,13 +215,13 @@ export class PreviewService {
       // 12. Update Session State to Ready & Log Preview Start
       previewManagerService.updateSession(previewId, {
         status: 'ready',
-        previewUrl: containerResult.previewUrl,
+        previewUrl,
         containerId: containerResult.containerId,
         port: containerResult.port,
       });
 
-      console.log(`[PreviewLifecycle:PreviewStart] Preview started successfully at ${containerResult.previewUrl} for ${owner}/${repo}`);
-      previewManagerService.appendLog(previewId, `Preview server running at ${containerResult.previewUrl}`);
+      console.log(`[PreviewLifecycle:PreviewStart] Preview started successfully for ${owner}/${repo}`);
+      previewManagerService.appendLog(previewId, 'Preview server is available through the public backend URL.');
 
       // 13. Schedule Automatic TTL Expiry Cleanup (10 minutes)
       previewCleanupService.registerPreview(previewId, workspacePath, 10 * 60 * 1000, (id) => {
@@ -230,7 +235,7 @@ export class PreviewService {
       const responseData: CreatePreviewData = {
         ...updatedSession,
         repositoryUrl: validation.normalizedUrl,
-        message: `Preview started successfully (${activeProjectType}). Container isolated and accessible on ${containerResult.previewUrl}`,
+        message: `Preview started successfully (${activeProjectType}). Container isolated and available at ${previewUrl}`,
       };
 
       return {

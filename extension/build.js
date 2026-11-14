@@ -8,7 +8,7 @@ const isWatch = process.argv.includes('--watch');
 const apiUrlArg = process.argv.find(a => a.startsWith('--api-url='));
 const apiUrl = apiUrlArg
   ? apiUrlArg.split('=')[1]
-  : (process.env.REPOLENS_API_URL || 'http://localhost:3001');
+  : (process.env.REPOLENS_API_URL || 'https://repolens-backend-gkdm.onrender.com');
 
 console.log(`[RepoLens Extension Build] Target Backend API URL: ${apiUrl}`);
 

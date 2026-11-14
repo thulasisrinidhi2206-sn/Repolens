@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#080b14">
     <meta name="description" content="RepoLens helps developers understand GitHub repositories with code quality insights, security and dependency checks, architecture visualization, and code review.">
+    <meta name="repolens-api-base-url" content="https://repolens-backend-gkdm.onrender.com">
     <title>RepoLens — See the shape of every codebase</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23131b32'/%3E%3Ccircle cx='17' cy='17' r='8' fill='none' stroke='%237c9dff' stroke-width='3'/%3E%3Cpath d='m23 23 8 8' stroke='%23ae8cff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="styles.css">
@@ -34,6 +35,7 @@
           <a href="#home">Home</a>
           <a href="#features">Features</a>
           <a href="#how-it-works">How It Works</a>
+          <a href="#build-preview">Build Preview</a>
           <a href="#about">About</a>
           <a class="nav-github" href="https://github.com/thulasisrinidhi2206-sn/Repolens" target="_blank" rel="noopener noreferrer">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.1c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.24-1.62-1.24-1.62-1.01-.7.08-.69.08-.69 1.12.08 1.7 1.15 1.7 1.15.99 1.69 2.6 1.2 3.23.92.1-.72.39-1.2.7-1.48-2.47-.28-5.06-1.24-5.06-5.5 0-1.21.43-2.2 1.15-2.98-.12-.28-.5-1.42.11-2.96 0 0 .94-.3 3.05 1.14a10.58 10.58 0 0 1 5.55 0c2.11-1.44 3.05-1.14 3.05-1.14.61 1.54.23 2.68.11 2.96.72.78 1.15 1.77 1.15 2.98 0 4.27-2.6 5.21-5.08 5.49.4.35.75 1.02.75 2.06v3.08c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg>
@@ -57,6 +59,7 @@
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10h11m-4.5-4.5L15.5 10 11 14.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
               </a>
               <a class="button button-quiet" href="#features">Discover features <span aria-hidden="true">↓</span></a>
+              <a class="button button-quiet" href="#build-preview">Build a preview <span aria-hidden="true">↗</span></a>
             </div>
             <div class="hero-note">
               <span class="hero-note-icon" aria-hidden="true">⌘</span>
@@ -341,6 +344,55 @@
                 </div>
               </div>
               <div class="preview-watermark">Concept UI · all values and labels are illustrative</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section build-preview-section" id="build-preview">
+        <div class="shell build-preview-layout">
+          <div class="build-preview-copy">
+            <span class="section-kicker">LIVE SANDBOX</span>
+            <h2>Bring a repository<br><span class="gradient-text">to life.</span></h2>
+            <p>Build supported public HTML and Vite repositories in an isolated container, then explore the running site here.</p>
+            <ul class="preview-points">
+              <li><span>✓</span> Public GitHub repositories only</li>
+              <li><span>✓</span> Static HTML and Vite project support</li>
+              <li><span>✓</span> Temporary sandbox with automatic expiry</li>
+            </ul>
+          </div>
+          <div class="build-preview-card">
+            <form id="build-preview-form" class="build-preview-form">
+              <label for="build-preview-repository">GitHub repository URL</label>
+              <div class="build-preview-input-row">
+                <input
+                  id="build-preview-repository"
+                  name="repositoryUrl"
+                  type="url"
+                  inputmode="url"
+                  placeholder="https://github.com/owner/repository"
+                  autocomplete="url"
+                  required
+                >
+                <button class="button button-primary" id="build-preview-submit" type="submit">Build Preview</button>
+              </div>
+              <p class="build-preview-hint">Only repositories supported by the preview builder can be launched.</p>
+            </form>
+
+            <div id="build-preview-result" class="build-preview-result" aria-live="polite" hidden>
+              <div id="build-preview-status" class="build-preview-status" role="status"></div>
+              <div id="build-preview-actions" class="build-preview-actions" hidden>
+                <a class="button button-quiet" id="build-preview-open" href="#" target="_blank" rel="noopener noreferrer">Open in new tab <span aria-hidden="true">↗</span></a>
+                <button class="button button-quiet" id="build-preview-stop" type="button">Stop Preview</button>
+              </div>
+              <iframe
+                id="build-preview-frame"
+                class="build-preview-frame"
+                title="Built repository preview"
+                sandbox="allow-scripts allow-forms"
+                referrerpolicy="no-referrer"
+                hidden
+              ></iframe>
             </div>
           </div>
         </div>

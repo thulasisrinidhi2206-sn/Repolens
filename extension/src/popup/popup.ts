@@ -15,6 +15,9 @@ const statusIndicatorEl = document.getElementById('status-indicator') as HTMLSpa
 const historyStatusEl = document.getElementById('history-status') as HTMLParagraphElement;
 const historyListEl = document.getElementById('history-list') as HTMLDivElement;
 const historyRefreshEl = document.getElementById('history-refresh') as HTMLButtonElement;
+const apiUrlInput = document.getElementById('api-url-input') as HTMLInputElement | null;
+const apiSaveBtn = document.getElementById('api-save-btn') as HTMLButtonElement | null;
+const apiResetBtn = document.getElementById('api-reset-btn') as HTMLButtonElement | null;
 
 function renderHistory(entries: AnalysisHistoryEntry[]): void {
   if (!historyListEl || !historyStatusEl) return;
@@ -161,16 +164,21 @@ async function checkActiveTab(): Promise<void> {
 async function checkBackendHealth(): Promise<void> {
   if (!backendStatusEl) return;
 
+  const baseUrl = await apiClient.getBaseUrl();
+  if (apiUrlInput && document.activeElement !== apiUrlInput) {
+    apiUrlInput.value = baseUrl;
+  }
+
   try {
-    backendStatusEl.textContent = `Connecting to ${CONFIG.API_BASE_URL}...`;
+    backendStatusEl.textContent = `Connecting to ${baseUrl}...`;
     const health = await apiClient.checkHealth();
-    backendStatusEl.textContent = `Connected (${health.status})`;
+    backendStatusEl.textContent = `Connected (${health.status}) · ${baseUrl}`;
     backendStatusEl.style.color = '#3fb950';
     if (statusIndicatorEl) {
       statusIndicatorEl.className = 'status-indicator active';
     }
   } catch (_err) {
-    backendStatusEl.textContent = `Offline (${CONFIG.API_BASE_URL})`;
+    backendStatusEl.textContent = `Offline (${baseUrl})`;
     backendStatusEl.style.color = '#f85149';
     if (statusIndicatorEl) {
       statusIndicatorEl.className = 'status-indicator offline';
@@ -183,3 +191,19 @@ checkActiveTab();
 checkBackendHealth();
 historyRefreshEl?.addEventListener('click', refreshAnalysisHistory);
 refreshAnalysisHistory();
+
+apiSaveBtn?.addEventListener('click', async () => {
+  const newUrl = apiUrlInput?.value.trim();
+  if (newUrl) {
+    await apiClient.setBaseUrl(newUrl);
+    await checkBackendHealth();
+  }
+});
+
+apiResetBtn?.addEventListener('click', async () => {
+  const defaultUrl = await apiClient.resetBaseUrl();
+  if (apiUrlInput) {
+    apiUrlInput.value = defaultUrl;
+  }
+  await checkBackendHealth();
+});

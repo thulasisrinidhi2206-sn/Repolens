@@ -792,3 +792,57 @@ body.repolens-modal-open {
 .repolens-ask-citations { display: grid; gap: 6px; margin-top: 12px; }
 .repolens-ask-citations a { color: #aeb8ed; font-size: 11px; overflow-wrap: anywhere; }
 
+.repolens-preview-panel:not([hidden]) {
+  display: block;
+}
+
+.repolens-preview-state {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background-color: #0d1117;
+}
+
+.repolens-preview-embed {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background-color: #ffffff;
+}
+
+.repolens-preview-iframe {
+  display: block;
+  width: 100%;
+  height: min(56vh, 560px);
+  min-height: 320px;
+  border: 0;
+  background-color: #ffffff;
+}
+
+.repolens-preview-status {
+  margin: 0;
+  color: #8b949e;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.repolens-stop-preview-btn {
+  align-self: flex-end;
+}
+
+.repolens-modal-btn-primary:disabled,
+.repolens-modal-btn-secondary:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+@media (max-width: 600px) {
+  .repolens-preview-iframe {
+    height: 45vh;
+    min-height: 240px;
+  }
+}

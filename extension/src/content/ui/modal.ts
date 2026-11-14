@@ -10,6 +10,8 @@ import { renderDashboardSections } from './dashboard';
 import { escapeHtml } from './html';
 
 let activeOverlay: HTMLElement | null = null;
+let previewStatusTimeout: number | null = null;
+let previewStatusGeneration = 0;
 
 /**
  * Creates and displays the RepoLens Analysis Modal in Loading state
@@ -45,6 +47,8 @@ export function showAnalysisModal(repo: RepoInfo, onCancel?: () => void): HTMLEl
  * Transitions the open modal to the Success state displaying the backend response
  */
 export function updateModalToSuccess(repo: RepoInfo, data: AnalyzeRepoData): void {
+  stopPreviewStatusPolling();
+
   const dialog = document.getElementById('repolens-modal-dialog');
   if (!dialog) return;
 
@@ -109,6 +113,7 @@ export function updateModalToSuccess(repo: RepoInfo, data: AnalyzeRepoData): voi
   });
 
   // Handle "Launch Sandbox Preview" button click
+  // Handle source preview creation
   if (launchPreviewBtn) {
     launchPreviewBtn.addEventListener('click', () => {
       startPreviewFlow(repo, data);
@@ -123,29 +128,53 @@ async function startPreviewFlow(repo: RepoInfo, analysisData: AnalyzeRepoData): 
   const dialog = document.getElementById('repolens-modal-dialog');
   if (!dialog) return;
 
-  dialog.innerHTML = getPreviewLoadingStateHtml(repo);
+  stopPreviewStatusPolling();
+  setPreviewBuildButtonVisible(dialog, false);
+  renderPreviewPanel(dialog, getPreviewLoadingStateHtml(repo));
 
-  const closeBtn = dialog.querySelector('#repolens-modal-close-btn');
-  const cancelBtn = dialog.querySelector('#repolens-modal-preview-cancel-btn');
-
-  const handleCancel = () => {
-    updateModalToSuccess(repo, analysisData);
-  };
-
-  closeBtn?.addEventListener('click', handleCancel);
-  cancelBtn?.addEventListener('click', handleCancel);
+  const buildStatus = dialog.querySelector<HTMLElement>('#repolens-preview-build-status');
+  const buildStages = [
+    'Checking repository eligibility…',
+    'Downloading repository files…',
+    'Building in an isolated container…',
+    'Starting the temporary preview server…',
+  ];
+  let buildStage = 0;
+  const buildProgressInterval = window.setInterval(() => {
+    if (!dialog.isConnected || !buildStatus) return;
+    buildStage = Math.min(buildStage + 1, buildStages.length - 1);
+    buildStatus.textContent = buildStages[buildStage];
+  }, 8000);
 
   try {
     const previewRes = await apiClient.createPreview(repo.url);
 
     if (previewRes.success && previewRes.data) {
-      updateModalToPreviewReady(repo, previewRes.data, analysisData);
+      if (!previewRes.data.id) {
+        throw new Error('Preview service did not return a preview session ID.');
+      }
+      if (previewRes.data.status !== 'ready') {
+        throw new Error(`Preview service returned status '${previewRes.data.status}' instead of ready.`);
+      }
+
+      const backendOrigin = new URL(await apiClient.getBaseUrl()).origin;
+      const previewUrl = getSafePreviewUrl(previewRes.data.previewUrl);
+      if (!previewUrl) {
+        throw new Error('Preview service did not return a valid preview URL.');
+      }
+      if (new URL(previewUrl).origin !== backendOrigin) {
+        throw new Error('Preview service returned a URL outside the configured RepoLens backend.');
+      }
+
+      updateModalToPreviewReady(repo, { ...previewRes.data, previewUrl }, analysisData);
     } else {
       throw new Error(previewRes.error || 'Failed to create visual preview container');
     }
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : 'Unknown preview error';
     updateModalToPreviewError(repo, errMsg, analysisData);
+  } finally {
+    window.clearInterval(buildProgressInterval);
   }
 }
 
@@ -160,25 +189,13 @@ function updateModalToPreviewReady(
   const dialog = document.getElementById('repolens-modal-dialog');
   if (!dialog) return;
 
-  dialog.innerHTML = getPreviewReadyStateHtml(repo, previewData);
+  renderPreviewPanel(dialog, getPreviewReadyStateHtml(repo, previewData));
 
-  const closeBtn = dialog.querySelector('#repolens-modal-close-btn');
-  const doneBtn = dialog.querySelector('#repolens-modal-done-btn');
-  const openPreviewBtn = dialog.querySelector<HTMLAnchorElement>('#repolens-open-sandbox-preview-btn');
-  const backBtn = dialog.querySelector('#repolens-modal-back-btn');
-
-  closeBtn?.addEventListener('click', closeActiveModal);
-  doneBtn?.addEventListener('click', closeActiveModal);
-  backBtn?.addEventListener('click', () => {
-    updateModalToSuccess(repo, analysisData);
+  const stopBtn = dialog.querySelector<HTMLButtonElement>('#repolens-modal-stop-preview-btn');
+  stopBtn?.addEventListener('click', () => {
+    stopPreviewFlow(repo, previewData, analysisData);
   });
-
-  if (openPreviewBtn && previewData.previewUrl) {
-    openPreviewBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.open(previewData.previewUrl, '_blank', 'noopener,noreferrer');
-    });
-  }
+  monitorPreviewSession(repo, previewData, analysisData, dialog);
 }
 
 /**
@@ -187,26 +204,140 @@ function updateModalToPreviewReady(
 function updateModalToPreviewError(
   repo: RepoInfo,
   errorMessage: string,
-  analysisData: AnalyzeRepoData
+  analysisData: AnalyzeRepoData,
+  ended = false
 ): void {
   const dialog = document.getElementById('repolens-modal-dialog');
   if (!dialog) return;
 
-  dialog.innerHTML = getPreviewErrorStateHtml(repo, errorMessage);
+  stopPreviewStatusPolling();
+  setPreviewBuildButtonVisible(dialog, false);
+  renderPreviewPanel(dialog, getPreviewErrorStateHtml(repo, errorMessage, ended));
 
-  const closeBtn = dialog.querySelector('#repolens-modal-close-btn');
-  const cancelBtn = dialog.querySelector('#repolens-modal-cancel-btn');
-  const backBtn = dialog.querySelector('#repolens-modal-back-btn');
   const retryBtn = dialog.querySelector('#repolens-modal-retry-btn');
 
-  closeBtn?.addEventListener('click', closeActiveModal);
-  cancelBtn?.addEventListener('click', closeActiveModal);
-  backBtn?.addEventListener('click', () => {
-    updateModalToSuccess(repo, analysisData);
-  });
   retryBtn?.addEventListener('click', () => {
     startPreviewFlow(repo, analysisData);
   });
+}
+
+async function stopPreviewFlow(
+  repo: RepoInfo,
+  previewData: CreatePreviewData,
+  analysisData: AnalyzeRepoData
+): Promise<void> {
+  const dialog = document.getElementById('repolens-modal-dialog');
+  const stopBtn = dialog?.querySelector<HTMLButtonElement>('#repolens-modal-stop-preview-btn');
+  const status = dialog?.querySelector<HTMLElement>('#repolens-preview-status');
+  if (!dialog || !stopBtn) return;
+
+  stopPreviewStatusPolling();
+  stopBtn.disabled = true;
+  if (status) status.textContent = 'Stopping preview...';
+
+  try {
+    const response = await apiClient.stopPreview(previewData.id);
+    if (!response.data || response.data.status !== 'stopped') {
+      throw new Error(response.error || 'Backend did not confirm that the preview stopped.');
+    }
+    updateModalToPreviewError(repo, 'Preview stopped. Build a new preview whenever you need one.', analysisData, true);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error while stopping preview.';
+    if (isExpiredPreviewError(message)) {
+      updateModalToPreviewError(repo, 'This preview session has expired or is no longer available.', analysisData, true);
+      return;
+    }
+
+    if (status) status.textContent = `Unable to stop preview: ${message}`;
+    stopBtn.disabled = false;
+    monitorPreviewSession(repo, previewData, analysisData, dialog);
+  }
+}
+
+function monitorPreviewSession(
+  repo: RepoInfo,
+  previewData: CreatePreviewData,
+  analysisData: AnalyzeRepoData,
+  dialog: HTMLElement
+): void {
+  stopPreviewStatusPolling();
+  const generation = previewStatusGeneration;
+  const expiryTime = previewData.expiresAt ? Date.parse(previewData.expiresAt) : Number.NaN;
+
+  const checkStatus = async (): Promise<void> => {
+    if (generation !== previewStatusGeneration || !dialog.isConnected) return;
+
+    if (Number.isFinite(expiryTime) && Date.now() >= expiryTime) {
+      updateModalToPreviewError(repo, 'This preview session has expired. Build a new preview to continue.', analysisData, true);
+      return;
+    }
+
+    try {
+      const response = await apiClient.getPreview(previewData.id);
+      if (generation !== previewStatusGeneration) return;
+      if (!response.data) throw new Error(response.error || 'Backend returned no preview status.');
+
+      if (response.data.status === 'stopped' || response.data.status === 'failed') {
+        updateModalToPreviewError(repo, 'This preview session has expired or is no longer running. Build a new preview to continue.', analysisData, true);
+        return;
+      }
+
+      const status = dialog.querySelector<HTMLElement>('#repolens-preview-status');
+      if (status) status.textContent = 'Preview is running.';
+    } catch (err: unknown) {
+      if (generation !== previewStatusGeneration) return;
+      const message = err instanceof Error ? err.message : 'Unknown status check error.';
+      if (isExpiredPreviewError(message)) {
+        updateModalToPreviewError(repo, 'This preview session has expired or is no longer available. Build a new preview to continue.', analysisData, true);
+        return;
+      }
+
+      const status = dialog.querySelector<HTMLElement>('#repolens-preview-status');
+      if (status) status.textContent = `Could not verify preview status: ${message}`;
+    }
+
+    if (generation !== previewStatusGeneration || !dialog.isConnected) return;
+    const untilExpiry = Number.isFinite(expiryTime) ? Math.max(1000, expiryTime - Date.now()) : 15000;
+    previewStatusTimeout = window.setTimeout(checkStatus, Math.min(15000, untilExpiry));
+  };
+
+  const untilExpiry = Number.isFinite(expiryTime) ? Math.max(1000, expiryTime - Date.now()) : 15000;
+  previewStatusTimeout = window.setTimeout(checkStatus, Math.min(15000, untilExpiry));
+}
+
+function stopPreviewStatusPolling(): void {
+  previewStatusGeneration++;
+  if (previewStatusTimeout !== null) {
+    window.clearTimeout(previewStatusTimeout);
+    previewStatusTimeout = null;
+  }
+}
+
+function renderPreviewPanel(dialog: HTMLElement, html: string): void {
+  const panel = dialog.querySelector<HTMLElement>('#repolens-preview-panel');
+  if (!panel) return;
+  panel.hidden = false;
+  panel.innerHTML = html;
+}
+
+function setPreviewBuildButtonVisible(dialog: HTMLElement, visible: boolean): void {
+  const buildButton = dialog.querySelector<HTMLButtonElement>('#repolens-modal-launch-preview-btn');
+  if (buildButton) buildButton.hidden = !visible;
+}
+
+function getSafePreviewUrl(previewUrl?: string): string | null {
+  if (!previewUrl) return null;
+
+  try {
+    const url = new URL(previewUrl);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function isExpiredPreviewError(message: string): boolean {
+  return /preview.*(not found|expired)|not found.*preview|HTTP 404/i.test(message);
 }
 
 /**
@@ -236,6 +367,7 @@ export function updateModalToError(repo: RepoInfo, errorMessage: string, onRetry
  * Closes and removes the active modal
  */
 export function closeActiveModal(): void {
+  stopPreviewStatusPolling();
   if (activeOverlay && activeOverlay.parentNode) {
     activeOverlay.parentNode.removeChild(activeOverlay);
     activeOverlay = null;
@@ -282,34 +414,19 @@ function getLoadingStateHtml(repo: RepoInfo): string {
  */
 function getPreviewLoadingStateHtml(repo: RepoInfo): string {
   return `
-    <div class="repolens-modal-header">
-      <div class="repolens-modal-title-wrap">
-        <span class="repolens-modal-logo">🐳</span>
-        <h2 id="repolens-modal-title" class="repolens-modal-title">Isolated Preview Sandbox</h2>
-      </div>
-      <button type="button" class="repolens-modal-close" aria-label="Close dialog" id="repolens-modal-close-btn">&times;</button>
-    </div>
-
-    <div class="repolens-modal-body">
+    <div class="repolens-preview-state">
       <div class="repolens-repo-pill">
         <span class="repolens-repo-pill-icon">📦</span>
         <span class="repolens-repo-pill-name">${escapeHtml(repo.fullRepo)}</span>
       </div>
-
       <div class="repolens-loading-card">
         <div class="repolens-spinner"></div>
-        <h3 class="repolens-loading-heading">Spinning Up Preview Sandbox...</h3>
+        <h3 class="repolens-loading-heading">Building Preview from Source...</h3>
         <p class="repolens-loading-subtext">
-          Downloading repository files, checking static/Vite eligibility, and starting sandboxed container on localhost.
+          Downloading repository files, checking static/Vite eligibility, and starting the isolated preview.
         </p>
       </div>
-    </div>
-
-    <div class="repolens-modal-footer">
-      <span class="repolens-footer-tag">POST /api/preview</span>
-      <button type="button" class="repolens-modal-btn-secondary" id="repolens-modal-preview-cancel-btn">
-        Back
-      </button>
+      <p class="repolens-preview-status" id="repolens-preview-build-status" role="status" aria-live="polite">${escapeHtml('Checking repository eligibility…')}</p>
     </div>
   `;
 }
@@ -318,19 +435,15 @@ function getPreviewLoadingStateHtml(repo: RepoInfo): string {
  * Generates HTML for Preview Ready state
  */
 function getPreviewReadyStateHtml(repo: RepoInfo, previewData: CreatePreviewData): string {
-  const previewUrl = previewData.previewUrl || `http://localhost:${previewData.port || 3000}`;
+  const previewUrl = getSafePreviewUrl(previewData.previewUrl);
+  if (!previewUrl) return getPreviewErrorStateHtml(repo, 'Preview service did not return a valid preview URL.');
   const projectType = previewData.projectType || 'Static/Vite';
+  const sandboxPermissions = new URL(previewUrl).origin === window.location.origin
+    ? 'allow-scripts allow-forms'
+    : 'allow-scripts allow-same-origin allow-forms';
 
   return `
-    <div class="repolens-modal-header">
-      <div class="repolens-modal-title-wrap">
-        <span class="repolens-modal-logo">🚀</span>
-        <h2 id="repolens-modal-title" class="repolens-modal-title">Preview Sandbox Ready</h2>
-      </div>
-      <button type="button" class="repolens-modal-close" aria-label="Close dialog" id="repolens-modal-close-btn">&times;</button>
-    </div>
-
-    <div class="repolens-modal-body">
+    <div class="repolens-preview-state">
       <div class="repolens-repo-header-row">
         <div class="repolens-repo-pill success">
           <span class="repolens-repo-pill-icon">📦</span>
@@ -345,10 +458,10 @@ function getPreviewReadyStateHtml(repo: RepoInfo, previewData: CreatePreviewData
         <div class="repolens-demo-header">
           <div class="repolens-demo-status-wrap">
             <span class="repolens-demo-status-indicator available"></span>
-            <span class="repolens-demo-status-text available">Sandbox Container Running</span>
+            <span class="repolens-demo-status-text available">Preview Ready</span>
           </div>
           <a href="${escapeHtml(previewUrl)}" target="_blank" rel="noopener noreferrer" class="repolens-demo-open-btn" id="repolens-open-sandbox-preview-btn">
-            <span>Open Sandbox Preview</span>
+            <span>Open in New Tab</span>
             <span class="repolens-btn-arrow">↗</span>
           </a>
         </div>
@@ -360,21 +473,26 @@ function getPreviewReadyStateHtml(repo: RepoInfo, previewData: CreatePreviewData
         </div>
       </div>
 
+      <div class="repolens-preview-embed">
+        <iframe
+          class="repolens-preview-iframe"
+          src="${escapeHtml(previewUrl)}"
+          title="Preview of ${escapeHtml(repo.fullRepo)}"
+          sandbox="${sandboxPermissions}"
+          referrerpolicy="no-referrer"
+        ></iframe>
+      </div>
+      <p class="repolens-preview-status" id="repolens-preview-status" role="status" aria-live="polite">Preview server is running.</p>
+
       <div class="repolens-info-callout">
         <span class="repolens-info-icon">🔒</span>
         <p class="repolens-info-text">
-          Container is running in a resource-constrained, non-privileged sandbox (read-only filesystem, no host network access).
-          The session will automatically expire in 10 minutes.
+          This preview runs in an isolated container and automatically expires at ${escapeHtml(previewData.expiresAt || 'its session limit')}.
         </p>
       </div>
-    </div>
 
-    <div class="repolens-modal-footer">
-      <button type="button" class="repolens-modal-btn-secondary" id="repolens-modal-back-btn">
-        Back to Analysis
-      </button>
-      <button type="button" class="repolens-modal-btn-primary" id="repolens-modal-done-btn">
-        Done
+      <button type="button" class="repolens-modal-btn-secondary repolens-stop-preview-btn" id="repolens-modal-stop-preview-btn">
+        Stop Preview
       </button>
     </div>
   `;
@@ -383,17 +501,9 @@ function getPreviewReadyStateHtml(repo: RepoInfo, previewData: CreatePreviewData
 /**
  * Generates HTML for Preview Error state
  */
-function getPreviewErrorStateHtml(repo: RepoInfo, errorMessage: string): string {
+function getPreviewErrorStateHtml(repo: RepoInfo, errorMessage: string, ended = false): string {
   return `
-    <div class="repolens-modal-header">
-      <div class="repolens-modal-title-wrap">
-        <span class="repolens-modal-logo">🐳</span>
-        <h2 id="repolens-modal-title" class="repolens-modal-title">Preview Sandbox Notice</h2>
-      </div>
-      <button type="button" class="repolens-modal-close" aria-label="Close dialog" id="repolens-modal-close-btn">&times;</button>
-    </div>
-
-    <div class="repolens-modal-body">
+    <div class="repolens-preview-state">
       <div class="repolens-repo-pill error">
         <span class="repolens-repo-pill-icon">⚠️</span>
         <span class="repolens-repo-pill-name">${escapeHtml(repo.fullRepo)}</span>
@@ -401,17 +511,11 @@ function getPreviewErrorStateHtml(repo: RepoInfo, errorMessage: string): string 
 
       <div class="repolens-error-card">
         <div class="repolens-error-icon">ℹ️</div>
-        <h3 class="repolens-error-heading">Preview Unavailable</h3>
+        <h3 class="repolens-error-heading">${ended ? 'Preview Session Ended' : 'Preview Unavailable'}</h3>
         <p class="repolens-error-message">${escapeHtml(errorMessage)}</p>
       </div>
-    </div>
-
-    <div class="repolens-modal-footer">
-      <button type="button" class="repolens-modal-btn-secondary" id="repolens-modal-back-btn">
-        Back to Analysis
-      </button>
       <button type="button" class="repolens-modal-btn-primary" id="repolens-modal-retry-btn">
-        Retry Preview
+        ${ended ? 'Build Preview' : 'Retry Build'}
       </button>
     </div>
   `;
@@ -556,6 +660,8 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
             : 'No live demo detected. You can launch an isolated Docker sandbox preview below if Docker is running on the backend.'}
         </p>
       </div>
+
+      <section class="repolens-preview-panel" id="repolens-preview-panel" aria-label="Source preview" hidden></section>
     </div>
 
     <div class="repolens-modal-footer">
@@ -566,7 +672,7 @@ function getSuccessStateHtml(repo: RepoInfo, data: AnalyzeRepoData): string {
         Export PDF
       </button>
       <button type="button" class="repolens-modal-btn-secondary" id="repolens-modal-launch-preview-btn">
-        Launch Sandbox Preview
+        Build Preview
       </button>
       <button type="button" class="repolens-modal-btn-primary" id="repolens-modal-done-btn">
         Done

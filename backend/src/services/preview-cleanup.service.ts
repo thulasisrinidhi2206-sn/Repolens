@@ -82,7 +82,9 @@ export class PreviewCleanupService {
 
     // 1. Stop and remove Docker container
     try {
-      await dockerRuntimeService.stopContainer(previewId);
+      if (!(await dockerRuntimeService.stopContainer(previewId))) {
+        success = false;
+      }
     } catch (err) {
       console.error(`[PreviewCleanup] Failed to stop container for ${previewId}:`, err);
       success = false;
@@ -153,4 +155,3 @@ export class PreviewCleanupService {
 }
 
 export const previewCleanupService = new PreviewCleanupService();
-

@@ -171,7 +171,7 @@ export class VitePreviewHandler implements IPreviewHandler {
       previewId,
       workspacePath,
       // --ignore-scripts prevents any malicious lifecycle hooks during npm install
-      buildCommand: 'npm install --no-audit --no-fund --ignore-scripts && (npm run build || npx vite build --outDir dist)',
+      buildCommand: 'npm install --include=dev --no-audit --no-fund --ignore-scripts && (npm run build || npx vite build --outDir dist)',
       timeoutMs: 120000,
     });
 
@@ -220,4 +220,3 @@ export class VitePreviewHandler implements IPreviewHandler {
 }
 
 export const vitePreviewHandler = new VitePreviewHandler();
-

@@ -10,6 +10,14 @@ router.post('/', apiRateLimiter, validatePreviewRequest, (req, res, next) => {
   previewController.createPreview(req, res).catch(next);
 });
 
+// GET/HEAD /api/preview/:previewId/content/* - Public-origin proxy to the isolated container
+router.all('/:previewId/content', (req, res, next) => {
+  previewController.servePreview(req, res).catch(next);
+});
+router.all('/:previewId/content/*', (req, res, next) => {
+  previewController.servePreview(req, res).catch(next);
+});
+
 // GET /api/preview/:previewId - Retrieve status and logs of a preview session
 router.get('/:previewId', (req, res, next) => {
   previewController.getPreviewStatus(req, res).catch(next);

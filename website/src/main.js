@@ -31,6 +31,162 @@ document.querySelectorAll('[data-copy]').forEach(button => {
 const currentYear = document.querySelector('#current-year');
 if (currentYear) currentYear.textContent = String(new Date().getFullYear());
 
+const previewForm = document.querySelector('#build-preview-form');
+const previewRepositoryInput = document.querySelector('#build-preview-repository');
+const previewSubmitButton = document.querySelector('#build-preview-submit');
+const previewResult = document.querySelector('#build-preview-result');
+const previewStatus = document.querySelector('#build-preview-status');
+const previewActions = document.querySelector('#build-preview-actions');
+const previewOpenLink = document.querySelector('#build-preview-open');
+const previewStopButton = document.querySelector('#build-preview-stop');
+const previewFrame = document.querySelector('#build-preview-frame');
+const configuredApiBaseUrl = document.querySelector('meta[name="repolens-api-base-url"]')?.content;
+const previewApiBaseUrl = (configuredApiBaseUrl || 'http://localhost:3001').replace(/\/+$/, '');
+let activePreviewId = null;
+let previewProgressTimer = null;
+
+function setPreviewStatus(message, state) {
+  if (!previewStatus || !previewResult) return;
+  previewResult.hidden = false;
+  previewStatus.textContent = message;
+  previewStatus.dataset.state = state;
+}
+
+function clearPreviewProgress() {
+  if (previewProgressTimer !== null) {
+    window.clearInterval(previewProgressTimer);
+    previewProgressTimer = null;
+  }
+}
+
+function stopPreview() {
+  if (!activePreviewId || !previewStopButton) return;
+  const previewId = activePreviewId;
+  previewStopButton.disabled = true;
+  setPreviewStatus('Stopping the preview and removing its temporary resources…', 'loading');
+
+  fetch(`${previewApiBaseUrl}/api/preview/${encodeURIComponent(previewId)}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' }
+  })
+    .then(async response => {
+      const payload = await response.json();
+      if (!response.ok || payload.success === false || payload.data?.status !== 'stopped') {
+        throw new Error(payload.error || `Unable to stop preview (HTTP ${response.status}).`);
+      }
+
+      activePreviewId = null;
+      clearPreviewProgress();
+      if (previewSubmitButton) previewSubmitButton.disabled = false;
+      if (previewFrame) {
+        previewFrame.removeAttribute('src');
+        previewFrame.hidden = true;
+      }
+      if (previewActions) previewActions.hidden = true;
+      setPreviewStatus('Preview stopped. Build another preview whenever you need one.', 'success');
+    })
+    .catch(error => {
+      setPreviewStatus(error instanceof Error ? error.message : 'Unable to stop the preview.', 'error');
+    })
+    .finally(() => {
+      previewStopButton.disabled = false;
+    });
+}
+
+previewStopButton?.addEventListener('click', stopPreview);
+
+previewForm?.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!previewRepositoryInput || !previewSubmitButton) return;
+  if (activePreviewId) {
+    setPreviewStatus('Stop the active preview before building another one.', 'error');
+    return;
+  }
+
+  clearPreviewProgress();
+  if (previewFrame) {
+    previewFrame.removeAttribute('src');
+    previewFrame.hidden = true;
+  }
+  if (previewActions) previewActions.hidden = true;
+
+  const progressMessages = [
+    'Checking the GitHub repository and preview support…',
+    'Downloading repository files…',
+    'Building the project in an isolated container…',
+    'Starting the temporary preview server…'
+  ];
+  let progressIndex = 0;
+  setPreviewStatus(progressMessages[progressIndex], 'loading');
+  previewProgressTimer = window.setInterval(() => {
+    progressIndex = Math.min(progressIndex + 1, progressMessages.length - 1);
+    setPreviewStatus(progressMessages[progressIndex], 'loading');
+  }, 8000);
+  previewSubmitButton.disabled = true;
+  previewSubmitButton.textContent = 'Building…';
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 180000);
+
+  try {
+    const response = await fetch(`${previewApiBaseUrl}/api/preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({ repositoryUrl: previewRepositoryInput.value.trim() }),
+      signal: controller.signal
+    });
+
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error(`Preview service returned an invalid response (HTTP ${response.status}).`);
+    }
+
+    if (!response.ok || payload.success === false || !payload.data) {
+      throw new Error(payload.error || `Preview build failed (HTTP ${response.status}).`);
+    }
+
+    const previewData = payload.data;
+    if (!previewData.id || previewData.status !== 'ready') {
+      throw new Error(`Preview service returned status "${previewData.status || 'unknown'}" instead of ready.`);
+    }
+
+    const previewUrl = new URL(previewData.previewUrl);
+    if (previewUrl.protocol !== 'https:' && previewUrl.hostname !== 'localhost' && previewUrl.hostname !== '127.0.0.1') {
+      throw new Error('Preview service did not return a secure HTTPS preview URL.');
+    }
+    if (previewUrl.origin !== new URL(previewApiBaseUrl).origin) {
+      throw new Error('Preview service returned a URL outside the configured RepoLens backend.');
+    }
+
+    activePreviewId = previewData.id;
+    clearPreviewProgress();
+    setPreviewStatus(`Preview is ready for ${previewData.repo.owner}/${previewData.repo.repo}.`, 'success');
+    if (previewOpenLink) previewOpenLink.href = previewUrl.href;
+    if (previewActions) previewActions.hidden = false;
+    if (previewFrame) {
+      previewFrame.src = previewUrl.href;
+      previewFrame.hidden = false;
+    }
+  } catch (error) {
+    clearPreviewProgress();
+    const message = error instanceof Error && error.name === 'AbortError'
+      ? 'Preview build timed out. Try again with a smaller repository.'
+      : error instanceof Error
+        ? error.message
+        : 'An unexpected error occurred while building the preview.';
+    setPreviewStatus(message, 'error');
+  } finally {
+    window.clearTimeout(timeoutId);
+    previewSubmitButton.disabled = Boolean(activePreviewId);
+    previewSubmitButton.textContent = 'Build Preview';
+  }
+});
+
 const revealElements = document.querySelectorAll('.reveal');
 if ('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
   const revealObserver = new IntersectionObserver(entries => {

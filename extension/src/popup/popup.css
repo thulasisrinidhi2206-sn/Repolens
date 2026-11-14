@@ -94,6 +94,35 @@ body {
   padding-left: 16px;
 }
 
+.api-config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  padding-left: 16px;
+}
+
+.api-url-input {
+  width: 100%;
+  background-color: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 5px;
+  color: #e6edf3;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.api-url-input:focus {
+  outline: none;
+  border-color: #58a6ff;
+}
+
+.api-btn-group {
+  display: flex;
+  gap: 6px;
+}
+
 .card-label {
   display: block;
   font-size: 10px;

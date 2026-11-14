@@ -13,7 +13,7 @@ export const CONFIG = {
   API_BASE_URL:
     typeof __REPOLENS_API_URL__ !== 'undefined' && __REPOLENS_API_URL__
       ? __REPOLENS_API_URL__
-      : 'http://localhost:3001',
+    : 'https://repolens-backend-gkdm.onrender.com',
 
   /**
    * Request timeout in milliseconds
