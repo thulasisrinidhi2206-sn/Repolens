@@ -160,6 +160,22 @@
             <p class="ask-repository-status" id="ask-repository-status" role="status" aria-live="polite">Analyze a repository first to start asking questions.</p>
             <div class="ask-repository-answer" id="ask-repository-answer" hidden></div>
           </section>
+          <section class="issue-navigator-card" aria-labelledby="issue-navigator-title">
+            <div class="result-panel-heading">
+              <span class="result-panel-kicker">ISSUE-TO-CODE NAVIGATOR</span>
+              <h3 id="issue-navigator-title">Turn a GitHub issue into a code investigation.</h3>
+              <p>Enter a public repository and issue number. RepoLens ranks likely source files, shows matching code excerpts, and suggests where to investigate next.</p>
+            </div>
+            <form id="website-issue-navigator-form" class="issue-navigator-form">
+              <div class="issue-navigator-fields">
+                <div><label for="website-issue-repository">GitHub repository URL</label><input id="website-issue-repository" type="url" inputmode="url" placeholder="https://github.com/facebook/react" required></div>
+                <div><label for="website-issue-number">Issue number</label><input id="website-issue-number" type="number" min="1" max="2147483647" step="1" placeholder="42" required></div>
+              </div>
+              <button class="button button-primary" id="website-issue-submit" type="submit">Find relevant code <span aria-hidden="true">→</span></button>
+            </form>
+            <p class="issue-navigator-status" id="website-issue-status" role="status" aria-live="polite"></p>
+            <div class="issue-navigator-output" id="website-issue-output" hidden></div>
+          </section>
         </div>
       </section>
 
