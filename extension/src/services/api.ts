@@ -27,6 +27,18 @@ export interface AskRepositoryData {
   filesConsulted: number;
 }
 
+
+export interface IssueCodeMatch {
+  path: string; relevance: number; reason: string; excerpt: string;
+  startLine: number; endLine: number; url: string;
+}
+export interface IssueNavigatorData {
+  repository: string; branch: string;
+  issue: { number: number; title: string; body: string; state: string; url: string; labels: string[] };
+  summary: string; matches: IssueCodeMatch[]; investigationSteps: string[];
+  filesInspected: number; engine: string;
+}
+
 export class ApiClient {
   private baseUrl: string;
 
@@ -283,6 +295,28 @@ export class ApiClient {
     } finally {
       clearTimeout(timeoutId);
     }
+  }
+
+
+  /** Investigates a GitHub issue and ranks source files with evidence. */
+  public async investigateIssue(repositoryUrl: string, issueNumber: number): Promise<ApiResponse<IssueNavigatorData>> {
+    const baseUrl = await this.getBaseUrl();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    try {
+      const response = await fetch(`${baseUrl}/api/issue-navigator`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ repositoryUrl, issueNumber }),
+        signal: controller.signal,
+      });
+      const data: ApiResponse<IssueNavigatorData> = await response.json();
+      if (!response.ok || data.success === false) throw new Error(data.error || `Issue investigation failed (HTTP ${response.status}).`);
+      return data;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') throw new Error('Issue investigation timed out. Please try again.');
+      throw error;
+    } finally { clearTimeout(timeoutId); }
   }
 
   /**
