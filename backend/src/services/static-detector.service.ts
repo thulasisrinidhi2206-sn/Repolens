@@ -156,7 +156,11 @@ export class StaticDetectorService {
       };
     }
 
-    if (projectType === 'Node.js' && !lowerRoot.includes('index.html')) {
+    const hasStaticEntry = lowerAll.some(file =>
+      file === 'index.html' || file === 'public/index.html' || file === 'src/index.html' || file === 'dist/index.html'
+    );
+
+    if (projectType === 'Node.js' && !hasStaticEntry) {
       return {
         isEligible: false,
         reason: 'Node.js server-side project detected without an entry index.html file.',
