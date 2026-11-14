@@ -116,6 +116,33 @@ describe('StaticDetectorService Eligibility Evaluation', () => {
     assert.equal(pyCheck.isEligible, false);
   });
 
+  it('should allow a Node.js-tooling repository when it contains a supported nested static entry point', () => {
+    const eligibility = StaticDetectorService.evaluateEligibility({
+      projectType: 'Node.js',
+      framework: 'Node.js',
+      rootFiles: ['package.json', 'gulpfile.js', 'src'],
+      allFiles: ['package.json', 'gulpfile.js', 'src/index.html', 'src/css/styles.css', 'src/js/scripts.js'],
+      packageJsonRaw: JSON.stringify({ devDependencies: { gulp: '^4.0.0' } }),
+    });
+
+    assert.equal(eligibility.isEligible, true);
+    assert.equal(eligibility.projectType, 'HTML/CSS/JavaScript');
+    assert.equal(eligibility.entryFile, 'src/index.html');
+  });
+
+  it('should still reject a Node.js server project without a static entry point', () => {
+    const eligibility = StaticDetectorService.evaluateEligibility({
+      projectType: 'Node.js',
+      framework: 'Express',
+      rootFiles: ['package.json', 'src', 'server.js'],
+      allFiles: ['package.json', 'src/server.js', 'server.js'],
+      packageJsonRaw: JSON.stringify({ dependencies: { express: '^4.0.0' } }),
+    });
+
+    assert.equal(eligibility.isEligible, false);
+    assert.match(eligibility.reason || '', /Node.js server-side project detected/);
+  });
+
   it('should filter safe static files and reject path traversal and secret files', () => {
     const paths = [
       'index.html',
