@@ -516,6 +516,14 @@ function renderReports(data) {
 }
 
 function renderRepositoryAnalysis(data, persist = true) {
+  activeQuestionRepositoryUrl = data.repositoryUrl || (data.repo?.owner && data.repo?.repo ? 'https://github.com/' + data.repo.owner + '/' + data.repo.repo : null);
+  if (askRepositoryButton) askRepositoryButton.disabled = !activeQuestionRepositoryUrl;
+  if (askRepositoryStatus) {
+    askRepositoryStatus.textContent = activeQuestionRepositoryUrl ? 'Ask a question about ' + (data.repository?.fullName || data.repo?.owner + '/' + data.repo?.repo) + '.' : 'Analyze a repository first to start asking questions.';
+    askRepositoryStatus.className = 'ask-repository-status';
+  }
+  if (askRepositoryAnswer) { askRepositoryAnswer.hidden = true; askRepositoryAnswer.replaceChildren(); }
+
   activeAnalysis = data;
   analysisResults.replaceChildren();
   analysisResults.hidden = false;
@@ -624,3 +632,84 @@ if (analysisResults && getHistory().length) {
   analysisResults.hidden = false;
   renderHistory();
 }
+
+/* Ask Your Repository — questions are answered by the backend using repository source evidence. */
+const askRepositoryForm = document.querySelector('#ask-repository-form');
+const askRepositoryInput = document.querySelector('#ask-repository-question');
+const askRepositoryButton = document.querySelector('#ask-repository-button');
+const askRepositoryStatus = document.querySelector('#ask-repository-status');
+const askRepositoryAnswer = document.querySelector('#ask-repository-answer');
+let activeQuestionRepositoryUrl = null;
+
+function renderRepositoryAnswer(result) {
+  askRepositoryAnswer.replaceChildren();
+  const answer = document.createElement('p');
+  answer.className = 'ask-answer-text';
+  answer.textContent = result.answer || 'No answer was returned.';
+  askRepositoryAnswer.append(answer);
+  if (Array.isArray(result.citations) && result.citations.length) {
+    const heading = document.createElement('h4');
+    heading.textContent = 'Source files';
+    askRepositoryAnswer.append(heading);
+    const list = document.createElement('ul');
+    list.className = 'ask-citation-list';
+    result.citations.forEach(citation => {
+      if (!citation || typeof citation.path !== 'string' || typeof citation.url !== 'string') return;
+      let parsed;
+      try { parsed = new URL(citation.url); } catch { return; }
+      if (parsed.hostname !== 'github.com' || parsed.protocol !== 'https:') return;
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = parsed.href;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = citation.path + ' · lines ' + citation.startLine + '-' + citation.endLine;
+      item.append(link);
+      list.append(item);
+    });
+    askRepositoryAnswer.append(list);
+  }
+  const meta = document.createElement('p');
+  meta.className = 'ask-answer-meta';
+  meta.textContent = (result.engine || 'RepoLens') + ' · ' + (result.filesConsulted || 0) + ' files consulted' + (result.isAiPowered ? '' : ' · evidence-only fallback');
+  askRepositoryAnswer.append(meta);
+  askRepositoryAnswer.hidden = false;
+}
+
+askRepositoryForm?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const question = askRepositoryInput?.value.trim() || '';
+  if (!activeQuestionRepositoryUrl) {
+    askRepositoryStatus.textContent = 'Analyze a repository first.';
+    askRepositoryStatus.className = 'ask-repository-status is-error';
+    return;
+  }
+  if (question.length < 5 || question.length > 500) {
+    askRepositoryStatus.textContent = 'Enter a question between 5 and 500 characters.';
+    askRepositoryStatus.className = 'ask-repository-status is-error';
+    return;
+  }
+  askRepositoryButton.disabled = true;
+  askRepositoryButton.textContent = 'Thinking…';
+  askRepositoryStatus.textContent = 'Reading relevant repository files…';
+  askRepositoryStatus.className = 'ask-repository-status is-loading';
+  askRepositoryAnswer.hidden = true;
+  try {
+    const response = await fetch(REPO_LENS_API + '/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repositoryUrl: activeQuestionRepositoryUrl, question })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.success === false) throw new Error(payload.error || payload.message || 'Could not answer this question.');
+    renderRepositoryAnswer(payload.data || payload);
+    askRepositoryStatus.textContent = 'Answer ready.';
+    askRepositoryStatus.className = 'ask-repository-status is-success';
+  } catch (error) {
+    askRepositoryStatus.textContent = error instanceof Error ? error.message : 'Unable to answer this question.';
+    askRepositoryStatus.className = 'ask-repository-status is-error';
+  } finally {
+    askRepositoryButton.disabled = !activeQuestionRepositoryUrl;
+    askRepositoryButton.textContent = 'Ask RepoLens';
+  }
+});
