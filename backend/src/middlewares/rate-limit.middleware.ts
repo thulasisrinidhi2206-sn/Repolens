@@ -76,3 +76,10 @@ export const askRateLimiter = createRateLimiter({
   maxRequests: 8,
   message: 'Repository Q&A limit reached. Please wait a minute before asking more questions.',
 });
+
+/** Issue investigations read GitHub issue data and multiple source files. */
+export const issueNavigatorRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 5,
+  message: 'Issue investigation limit reached. Please wait a minute before investigating another issue.',
+});
