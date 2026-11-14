@@ -517,9 +517,8 @@ function getPreviewReadyStateHtml(repo: RepoInfo, previewData: CreatePreviewData
   const previewUrl = getSafePreviewUrl(previewData.previewUrl);
   if (!previewUrl) return getPreviewErrorStateHtml(repo, 'Preview service did not return a valid preview URL.');
   const projectType = previewData.projectType || 'Static/Vite';
-  const sandboxPermissions = new URL(previewUrl).origin === window.location.origin
-    ? 'allow-scripts allow-forms'
-    : 'allow-scripts allow-same-origin allow-forms';
+  // Keep preview content on an opaque origin. Never combine allow-scripts with allow-same-origin for untrusted repositories.
+  const sandboxPermissions = 'allow-scripts allow-forms';
 
   return `
     <div class="repolens-preview-state">
@@ -566,7 +565,7 @@ function getPreviewReadyStateHtml(repo: RepoInfo, previewData: CreatePreviewData
       <div class="repolens-info-callout">
         <span class="repolens-info-icon">🔒</span>
         <p class="repolens-info-text">
-          This preview runs in an isolated container and automatically expires at ${escapeHtml(previewData.expiresAt || 'its session limit')}.
+          This preview is served in a restricted browser sandbox and automatically expires at ${escapeHtml(previewData.expiresAt || 'its session limit')}.
         </p>
       </div>
 
