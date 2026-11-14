@@ -5,6 +5,7 @@
 
 import fs from 'fs/promises';
 import { dockerRuntimeService } from './docker-runtime.service';
+import { previewManagerService } from './preview-manager.service';
 
 export interface ActiveCleanupEntry {
   previewId: string;
@@ -13,6 +14,7 @@ export interface ActiveCleanupEntry {
   expiresAt: number; // Unix timestamp ms
   timer?: NodeJS.Timeout;
   onExpire?: (previewId: string) => void;
+  usesDocker: boolean;
 }
 
 export class PreviewCleanupService {
@@ -32,7 +34,8 @@ export class PreviewCleanupService {
     previewId: string,
     workspacePath: string,
     ttlMs: number = 10 * 60 * 1000, // 10 minutes default
-    onExpire?: (previewId: string) => void
+    onExpire?: (previewId: string) => void,
+    usesDocker: boolean = true
   ): void {
     // Clear existing entry if present
     this.clearCleanup(previewId);
@@ -56,13 +59,14 @@ export class PreviewCleanupService {
       expiresAt,
       timer,
       onExpire,
+      usesDocker,
     });
   }
 
   /**
    * Executes immediate teardown and cleanup of a preview session (container + temporary files)
    */
-  public async cleanup(previewId: string, customWorkspacePath?: string): Promise<boolean> {
+  public async cleanup(previewId: string, customWorkspacePath?: string, usesDockerOverride?: boolean): Promise<boolean> {
     const entry = this.activeCleanups.get(previewId);
     const workspacePath = entry?.workspacePath || customWorkspacePath;
 
@@ -80,15 +84,17 @@ export class PreviewCleanupService {
 
     let success = true;
 
-    // 1. Stop and remove Docker container
-    try {
-      if (!(await dockerRuntimeService.stopContainer(previewId))) {
+    // 1. Stop and remove a Docker container only for container-backed previews.
+    const shouldStopDocker = usesDockerOverride ?? entry?.usesDocker ?? true;
+    if (shouldStopDocker) {
+      try {
+        if (!(await dockerRuntimeService.stopContainer(previewId))) success = false;
+      } catch (err) {
+        console.error(`[PreviewCleanup] Failed to stop container for ${previewId}:`, err);
         success = false;
       }
-    } catch (err) {
-      console.error(`[PreviewCleanup] Failed to stop container for ${previewId}:`, err);
-      success = false;
     }
+    previewManagerService.clearWorkspacePath(previewId);
 
     // 2. Remove isolated workspace directory
     if (workspacePath) {
