@@ -144,7 +144,7 @@ export class PreviewService {
     }
 
     // Static HTML/CSS/JS previews are served directly by the backend and do not need Docker.
-    // Vite projects still require an isolated container for dependency installation and builds.
+    // Vite source projects still require an isolated container; prebuilt dist output can be served directly.
     const isDirectStaticPreview = activeProjectType === 'HTML/CSS/JavaScript';
     const isPrebuiltVitePreview = activeProjectType === 'Vite' && hasPrebuiltViteOutput(allFilePaths);
     const canServeWithoutDocker = isDirectStaticPreview || isPrebuiltVitePreview;
@@ -276,7 +276,7 @@ export class PreviewService {
 
       // Cleanup any allocated resources immediately on failure
       console.log(`[PreviewLifecycle:Cleanup] Triggering failure cleanup for preview ${previewId}`);
-      await previewCleanupService.cleanup(previewId, workspacePath, !isDirectStaticPreview);
+      await previewCleanupService.cleanup(previewId, workspacePath, !canServeWithoutDocker);
 
       return {
         success: false,
