@@ -33,7 +33,7 @@ if (process.env.NODE_ENV !== 'test') {
         console.log('🐳 [RepoLens Startup] Docker runtime is available.');
         await dockerRuntimeService.cleanupOrphanedContainers();
       } else {
-        console.log('ℹ️ [RepoLens Startup] Docker daemon is not running. Core analysis is active; sandbox preview will return 503 until Docker is started.');
+        console.log('ℹ️ [RepoLens Startup] Docker daemon is not running. Static HTML previews remain available; Vite builds still require Docker.');
       }
     } catch {
       // Non-blocking
