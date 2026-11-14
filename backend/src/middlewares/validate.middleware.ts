@@ -40,3 +40,17 @@ export function validateAskRequest(req: Request, res: Response, next: NextFuncti
   }
   next();
 }
+
+/** Validate issue investigation input before GitHub API calls. */
+export function validateIssueNavigatorRequest(req: Request, res: Response, next: NextFunction): void {
+  const { repositoryUrl, issueNumber } = req.body || {};
+  if (typeof repositoryUrl !== 'string' || repositoryUrl.trim().length === 0) {
+    sendError(res, 'Field "repositoryUrl" is required and must be a non-empty string.', 400);
+    return;
+  }
+  if (!Number.isSafeInteger(issueNumber) || issueNumber < 1) {
+    sendError(res, 'Field "issueNumber" must be a positive integer.', 400);
+    return;
+  }
+  next();
+}
