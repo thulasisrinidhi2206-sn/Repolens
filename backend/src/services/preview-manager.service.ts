@@ -15,6 +15,7 @@ export interface CreateSessionOptions {
 
 export class PreviewManagerService {
   private sessions = new Map<string, ProjectPreview>();
+  private workspacePaths = new Map<string, string>();
 
   /**
    * Initializes a new preview session
@@ -38,6 +39,19 @@ export class PreviewManagerService {
 
     this.sessions.set(previewId, session);
     return session;
+  }
+
+  /** Keeps server-side workspace paths out of API responses. */
+  public setWorkspacePath(previewId: string, workspacePath: string): void {
+    this.workspacePaths.set(previewId, workspacePath);
+  }
+
+  public getWorkspacePath(previewId: string): string | undefined {
+    return this.workspacePaths.get(previewId);
+  }
+
+  public clearWorkspacePath(previewId: string): void {
+    this.workspacePaths.delete(previewId);
   }
 
   /**
