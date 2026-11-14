@@ -142,22 +142,26 @@ export class PreviewService {
       };
     }
 
-    // 7. Check Container Runtime Availability (Docker)
-    const dockerStatus = await dockerRuntimeService.checkAvailability();
-    if (!dockerStatus.available) {
-      const errorMsg = dockerStatus.details
-        ? `Docker container runtime is currently unavailable on the host system: ${dockerStatus.details}`
-        : (dockerStatus.error || 'Docker container runtime is currently unavailable on the host system. Please ensure the Docker daemon is running.');
+    // Static HTML/CSS/JS previews are served directly by the backend and do not need Docker.
+    // Vite projects still require an isolated container for dependency installation and builds.
+    const isDirectStaticPreview = activeProjectType === 'HTML/CSS/JavaScript';
+    if (!isDirectStaticPreview) {
+      const dockerStatus = await dockerRuntimeService.checkAvailability();
+      if (!dockerStatus.available) {
+        const errorMsg = dockerStatus.details
+          ? `Docker container runtime is currently unavailable on the host system: ${dockerStatus.details}`
+          : (dockerStatus.error || 'Docker container runtime is currently unavailable on the host system.');
 
-      return {
-        success: false,
-        statusCode: 503,
-        error: errorMsg,
-        errorType: 'DOCKER_UNAVAILABLE',
-      };
+        return {
+          success: false,
+          statusCode: 503,
+          error: errorMsg,
+          errorType: 'DOCKER_UNAVAILABLE',
+        };
+      }
     }
 
-    // Initialize in-memory session tracking
+    // Initialize in-memory session tracking.
     const session = previewManagerService.createSession({
       previewId,
       repo: repoIdentifier,
@@ -166,16 +170,15 @@ export class PreviewService {
       ttlMinutes: 10,
     });
 
-    // 8. Create Isolated Temporary Workspace Directory on Host
+    // Create a bounded temporary workspace for this preview.
     const workspacePath = path.join(os.tmpdir(), 'repolens-previews', previewId);
     try {
       await fs.mkdir(workspacePath, { recursive: true });
       previewManagerService.appendLog(previewId, `Created temporary workspace at ${workspacePath}`);
       previewManagerService.updateSession(previewId, { status: 'building' });
 
-      // 9. Allocate Ephemeral Port & Prepare Workspace via Handler
-      const hostPort = await dockerRuntimeService.findAvailablePort();
-
+      // Static projects do not need a host port; container-backed projects do.
+      const hostPort = isDirectStaticPreview ? 0 : await dockerRuntimeService.findAvailablePort();
       const previewContext = {
         previewId,
         repo: repoIdentifier,
@@ -185,39 +188,40 @@ export class PreviewService {
         port: hostPort,
       };
 
-      previewManagerService.appendLog(previewId, `Downloading repository source files from GitHub...`);
+      previewManagerService.appendLog(previewId, 'Downloading repository source files from GitHub...');
       await handler.prepareWorkspace(previewContext);
       previewManagerService.appendLog(previewId, 'Workspace files successfully downloaded and verified.');
 
-      // 10. Execute Containerized Build if Handler Requires It
       if (handler.build) {
         previewManagerService.appendLog(previewId, 'Starting containerized dependency install and build (node:20-alpine)...');
         const buildResult = await handler.build(previewContext);
-
-        if (!buildResult.success) {
-          throw new Error(buildResult.error || 'Compilation failed inside build container.');
-        }
+        if (!buildResult.success) throw new Error(buildResult.error || 'Compilation failed inside build container.');
         previewManagerService.appendLog(previewId, 'Containerized build completed successfully.');
       }
 
-      // 11. Start Sandboxed Serving Container (Nginx)
-      const containerOptions = handler.getContainerOptions(previewContext);
-
-      console.log(`[PreviewLifecycle:ContainerCreation] Creating isolated serving container repolens-preview-${previewId} on localhost:${hostPort}`);
-      previewManagerService.appendLog(previewId, `Creating isolated Docker serving container on localhost:${hostPort}...`);
-
-      const containerResult = await dockerRuntimeService.startStaticContainer(containerOptions);
       const previewUrl = `${(publicApiBaseUrl || process.env.PREVIEW_PUBLIC_BASE_URL || process.env.PUBLIC_API_URL || `http://localhost:${process.env.PORT || 3001}`).replace(/\/+$/, '')}/api/preview/${encodeURIComponent(previewId)}/content/`;
+      let containerId: string | undefined;
+      let servingPort: number | undefined;
 
-      console.log(`[PreviewLifecycle:ContainerCreated] Container ${containerResult.containerId} created for session ${previewId}`);
-      previewManagerService.appendLog(previewId, `Container ${containerResult.containerId} created.`);
+      if (isDirectStaticPreview) {
+        // No repository code is executed on the backend; files are served as sandboxed iframe content.
+        previewManagerService.setWorkspacePath(previewId, workspacePath);
+        previewManagerService.appendLog(previewId, 'Static files are ready and will be served without Docker.');
+      } else {
+        const containerOptions = handler.getContainerOptions(previewContext);
+        previewManagerService.appendLog(previewId, `Creating isolated Docker serving container on localhost:${hostPort}...`);
+        const containerResult = await dockerRuntimeService.startStaticContainer(containerOptions);
+        containerId = containerResult.containerId;
+        servingPort = containerResult.port;
+        previewManagerService.appendLog(previewId, `Container ${containerResult.containerId} created.`);
+      }
 
       // 12. Update Session State to Ready & Log Preview Start
       previewManagerService.updateSession(previewId, {
         status: 'ready',
         previewUrl,
-        containerId: containerResult.containerId,
-        port: containerResult.port,
+        containerId,
+        port: servingPort,
       });
 
       console.log(`[PreviewLifecycle:PreviewStart] Preview started successfully for ${owner}/${repo}`);
@@ -235,7 +239,9 @@ export class PreviewService {
       const responseData: CreatePreviewData = {
         ...updatedSession,
         repositoryUrl: validation.normalizedUrl,
-        message: `Preview started successfully (${activeProjectType}). Container isolated and available at ${previewUrl}`,
+        message: isDirectStaticPreview
+          ? `Static preview started successfully. Files are served without a Docker dependency at ${previewUrl}`
+          : `Preview started successfully (${activeProjectType}). Container isolated and available at ${previewUrl}`,
       };
 
       return {
@@ -255,7 +261,7 @@ export class PreviewService {
 
       // Cleanup any allocated resources immediately on failure
       console.log(`[PreviewLifecycle:Cleanup] Triggering failure cleanup for preview ${previewId}`);
-      await previewCleanupService.cleanup(previewId, workspacePath);
+      await previewCleanupService.cleanup(previewId, workspacePath, !isDirectStaticPreview);
 
       return {
         success: false,
@@ -282,7 +288,7 @@ export class PreviewService {
     }
 
     // Optionally append latest container logs if still running
-    if (session.status === 'ready' || session.status === 'running') {
+    if ((session.status === 'ready' || session.status === 'running') && session.containerId) {
       const containerLogs = await dockerRuntimeService.getContainerLogs(previewId, 10);
       if (containerLogs.length > 0) {
         // Return session with fresh logs
