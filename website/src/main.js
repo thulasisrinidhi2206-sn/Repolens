@@ -870,3 +870,109 @@ askRepositoryForm?.addEventListener('submit', async event => {
     askRepositoryButton.textContent = 'Ask RepoLens';
   }
 });
+
+
+/* Issue-to-Code Navigator — website client for the existing backend endpoint. */
+const issueNavigatorForm = document.querySelector('#website-issue-navigator-form');
+const issueRepositoryInput = document.querySelector('#website-issue-repository');
+const issueNumberInput = document.querySelector('#website-issue-number');
+const issueNavigatorButton = document.querySelector('#website-issue-submit');
+const issueNavigatorStatus = document.querySelector('#website-issue-status');
+const issueNavigatorOutput = document.querySelector('#website-issue-output');
+
+function renderIssueNavigatorResult(data) {
+  issueNavigatorOutput.replaceChildren();
+  const heading = node('div', 'issue-result-heading');
+  addText(heading, 'span', 'result-panel-kicker', data.repository + ' · #' + data.issue.number);
+  addText(heading, 'h4', '', data.issue.title);
+  const issueLink = safeExternalLink(data.issue.url, 'Open GitHub issue ↗');
+  if (issueLink) heading.append(issueLink);
+  issueNavigatorOutput.append(heading);
+  addText(issueNavigatorOutput, 'p', 'issue-result-summary', data.summary);
+  const meta = node('div', 'result-inline-meta');
+  addBadge(meta, data.issue.state || 'unknown');
+  addBadge(meta, data.branch || 'default branch');
+  addText(meta, 'span', '', (data.filesInspected || 0) + ' files inspected');
+  issueNavigatorOutput.append(meta);
+
+  const matchesHeading = node('h4', 'issue-output-heading', 'Likely relevant files');
+  issueNavigatorOutput.append(matchesHeading);
+  const matches = node('div', 'issue-match-list');
+  (Array.isArray(data.matches) ? data.matches : []).forEach(match => {
+    const card = node('article', 'issue-match-card');
+    const top = node('div', 'issue-match-top');
+    const fileLink = safeExternalLink(match.url, match.path);
+    if (fileLink) top.append(fileLink); else addText(top, 'strong', '', match.path);
+    addBadge(top, 'Relevance ' + match.relevance);
+    card.append(top);
+    addText(card, 'p', 'issue-match-reason', match.reason);
+    if (match.excerpt) addText(card, 'pre', 'issue-match-excerpt', match.excerpt);
+    addText(card, 'span', 'issue-match-lines', 'Lines ' + match.startLine + '–' + match.endLine);
+    matches.append(card);
+  });
+  if (!matches.childElementCount) addText(matches, 'p', 'empty-state', 'No candidate files were returned.');
+  issueNavigatorOutput.append(matches);
+
+  const steps = node('section', 'issue-investigation-steps');
+  addText(steps, 'h4', 'issue-output-heading', 'Suggested investigation steps');
+  const list = node('ol', 'compact-list');
+  (Array.isArray(data.investigationSteps) ? data.investigationSteps : []).forEach(step => addText(list, 'li', '', step));
+  steps.append(list);
+  issueNavigatorOutput.append(steps);
+  addText(issueNavigatorOutput, 'p', 'issue-result-disclaimer', 'These ranked files are investigation leads, not confirmed root causes. Verify the evidence before changing code.');
+  issueNavigatorOutput.hidden = false;
+}
+
+issueNavigatorForm?.addEventListener('submit', async event => {
+  event.preventDefault();
+  let repositoryUrl;
+  try {
+    repositoryUrl = normalizeGitHubRepositoryUrl(issueRepositoryInput.value);
+  } catch (error) {
+    issueNavigatorStatus.textContent = error.message;
+    issueNavigatorStatus.className = 'issue-navigator-status is-error';
+    issueRepositoryInput.focus();
+    return;
+  }
+  const issueNumber = Number(issueNumberInput.value);
+  if (!Number.isSafeInteger(issueNumber) || issueNumber < 1) {
+    issueNavigatorStatus.textContent = 'Enter a valid positive GitHub issue number.';
+    issueNavigatorStatus.className = 'issue-navigator-status is-error';
+    issueNumberInput.focus();
+    return;
+  }
+
+  issueNavigatorButton.disabled = true;
+  issueNavigatorButton.textContent = 'Investigating…';
+  issueNavigatorStatus.textContent = 'Fetching the issue and ranking relevant source files. This may take a little while.';
+  issueNavigatorStatus.className = 'issue-navigator-status is-loading';
+  issueNavigatorOutput.hidden = true;
+  issueNavigatorOutput.replaceChildren();
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 120000);
+  try {
+    const response = await fetch(REPO_LENS_API + '/api/issue-navigator', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ repositoryUrl, issueNumber }),
+      signal: controller.signal
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.success === false) throw new Error(payload.error || payload.message || 'Issue investigation failed (HTTP ' + response.status + ').');
+    const data = payload.data || payload;
+    if (!data.issue || !Array.isArray(data.matches)) throw new Error('The backend returned an unexpected issue investigation response.');
+    renderIssueNavigatorResult(data);
+    issueNavigatorStatus.textContent = 'Issue investigation complete.';
+    issueNavigatorStatus.className = 'issue-navigator-status is-success';
+    issueNavigatorOutput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (error) {
+    issueNavigatorStatus.textContent = error instanceof Error && error.name === 'AbortError'
+      ? 'The investigation timed out. Try again with a smaller repository.'
+      : error instanceof Error ? error.message : 'Unable to investigate this issue right now.';
+    issueNavigatorStatus.className = 'issue-navigator-status is-error';
+  } finally {
+    window.clearTimeout(timeout);
+    issueNavigatorButton.disabled = false;
+    issueNavigatorButton.innerHTML = 'Find relevant code <span aria-hidden="true">→</span>';
+  }
+});
