@@ -253,6 +253,28 @@ export class GitHubService {
     }
   }
 
+
+  /** Fetches one issue from a public repository. Pull requests are returned with isPullRequest=true. */
+  public async getIssue(owner: string, repo: string, issueNumber: number): Promise<{
+    number: number; title: string; body: string; state: string; htmlUrl: string;
+    labels: string[]; isPullRequest: boolean; createdAt: string; updatedAt: string;
+  }> {
+    const data: any = await this.request(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`
+    );
+    return {
+      number: data.number,
+      title: String(data.title || ''),
+      body: String(data.body || ''),
+      state: String(data.state || 'open'),
+      htmlUrl: String(data.html_url || ''),
+      labels: Array.isArray(data.labels) ? data.labels.map((label: any) => String(label.name || '')).filter(Boolean) : [],
+      isPullRequest: Boolean(data.pull_request),
+      createdAt: String(data.created_at || ''),
+      updatedAt: String(data.updated_at || '')
+    };
+  }
+
   /**
    * Fetches the full recursive Git tree for a branch or commit SHA
    */
