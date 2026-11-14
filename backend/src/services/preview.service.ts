@@ -18,6 +18,7 @@ import { previewCleanupService } from './preview-cleanup.service';
 import { staticPreviewHandler } from './handlers/static.handler';
 import { vitePreviewHandler } from './handlers/vite.handler';
 import { IPreviewHandler } from './handlers/preview-handler.interface';
+import { hasPrebuiltViteOutput } from './preview-build-mode';
 
 export interface PreviewServiceResult {
   success: boolean;
@@ -145,7 +146,9 @@ export class PreviewService {
     // Static HTML/CSS/JS previews are served directly by the backend and do not need Docker.
     // Vite projects still require an isolated container for dependency installation and builds.
     const isDirectStaticPreview = activeProjectType === 'HTML/CSS/JavaScript';
-    if (!isDirectStaticPreview) {
+    const isPrebuiltVitePreview = activeProjectType === 'Vite' && hasPrebuiltViteOutput(allFilePaths);
+    const canServeWithoutDocker = isDirectStaticPreview || isPrebuiltVitePreview;
+    if (!canServeWithoutDocker) {
       const dockerStatus = await dockerRuntimeService.checkAvailability();
       if (!dockerStatus.available) {
         const errorMsg = dockerStatus.details
@@ -192,7 +195,7 @@ export class PreviewService {
       await handler.prepareWorkspace(previewContext);
       previewManagerService.appendLog(previewId, 'Workspace files successfully downloaded and verified.');
 
-      if (handler.build) {
+      if (handler.build && !isPrebuiltVitePreview) {
         previewManagerService.appendLog(previewId, 'Starting containerized dependency install and build (node:20-alpine)...');
         const buildResult = await handler.build(previewContext);
         if (!buildResult.success) throw new Error(buildResult.error || 'Compilation failed inside build container.');
@@ -203,10 +206,10 @@ export class PreviewService {
       let containerId: string | undefined;
       let servingPort: number | undefined;
 
-      if (isDirectStaticPreview) {
-        // No repository code is executed on the backend; files are served as sandboxed iframe content.
-        let staticRoot = workspacePath;
-        for (const candidate of ['public', 'src', 'dist']) {
+      if (canServeWithoutDocker) {
+        // Serve only prebuilt output for Vite; never execute repository build scripts on the backend.
+        let staticRoot = isPrebuiltVitePreview ? path.join(workspacePath, 'dist') : workspacePath;
+        for (const candidate of (isPrebuiltVitePreview ? [] : ['public', 'src', 'dist'])) {
           try {
             await fs.access(path.join(workspacePath, candidate, 'index.html'));
             staticRoot = path.join(workspacePath, candidate);
@@ -216,7 +219,9 @@ export class PreviewService {
           }
         }
         previewManagerService.setWorkspacePath(previewId, staticRoot);
-        previewManagerService.appendLog(previewId, 'Static files are ready and will be served without Docker.');
+        previewManagerService.appendLog(previewId, isPrebuiltVitePreview
+          ? 'Prebuilt Vite dist output is ready and will be served without Docker.'
+          : 'Static files are ready and will be served without Docker.');
       } else {
         const containerOptions = handler.getContainerOptions(previewContext);
         previewManagerService.appendLog(previewId, `Creating isolated Docker serving container on localhost:${hostPort}...`);
@@ -242,15 +247,15 @@ export class PreviewService {
         previewManagerService.updateSession(id, { status: 'stopped' });
         previewManagerService.appendLog(id, 'Preview session expired and resources cleaned up.');
         console.log(`[PreviewLifecycle:Cleanup] Preview session ${id} expired and cleaned up.`);
-      });
+      }, !canServeWithoutDocker);
 
       const updatedSession = previewManagerService.getSession(previewId) || session;
 
       const responseData: CreatePreviewData = {
         ...updatedSession,
         repositoryUrl: validation.normalizedUrl,
-        message: isDirectStaticPreview
-          ? `Static preview started successfully. Files are served without a Docker dependency at ${previewUrl}`
+        message: canServeWithoutDocker
+          ? `${isPrebuiltVitePreview ? 'Prebuilt Vite' : 'Static'} preview started successfully without Docker at ${previewUrl}`
           : `Preview started successfully (${activeProjectType}). Container isolated and available at ${previewUrl}`,
       };
 
