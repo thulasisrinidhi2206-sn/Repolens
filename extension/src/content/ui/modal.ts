@@ -121,14 +121,14 @@ export function updateModalToSuccess(repo: RepoInfo, data: AnalyzeRepoData): voi
   issueForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const value = issueInput?.value.trim() || '';
-    const issueUrlMatch = value.match(/^https?:\\/\\/github\\.com\\/([^/]+)\\/([^/]+)\\/issues\\/(\\d+)(?:[/?#].*)?$/i);
-    const issueNumber = issueUrlMatch ? Number(issueUrlMatch[3]) : /^\\d+$/.test(value) ? Number(value) : NaN;
+    const issueUrlMatch = value.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)(?:[/?#].*)?$/i);
+    const issueNumber = issueUrlMatch ? Number(issueUrlMatch[3]) : /^\d+$/.test(value) ? Number(value) : NaN;
     if (!issueButton || !issueStatus || !issueResults) return;
     if (!Number.isSafeInteger(issueNumber) || issueNumber < 1) {
       issueStatus.textContent = 'Enter a positive issue number or a GitHub issue URL for this repository.';
       return;
     }
-    if (issueUrlMatch && (issueUrlMatch[1].toLowerCase() + '/' + issueUrlMatch[2].replace(/\\.git$/i, '').toLowerCase()) !== repo.fullRepo.toLowerCase()) {
+    if (issueUrlMatch && (issueUrlMatch[1].toLowerCase() + '/' + issueUrlMatch[2].replace(/\.git$/i, '').toLowerCase()) !== repo.fullRepo.toLowerCase()) {
       issueStatus.textContent = 'The issue URL must belong to the repository currently being analyzed.';
       return;
     }
