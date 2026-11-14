@@ -2881,3 +2881,35 @@ p {
 .ask-answer-meta { margin: 12px 0 0; }
 @media (max-width: 600px) { .ask-repository-card { padding: 17px; } }
 
+
+
+
+/* Ask Your Repository */
+.ask-repository-card {
+  margin-top: 18px;
+  padding: 24px;
+  border: 1px solid rgba(148, 163, 209, .19);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(18, 24, 43, .97), rgba(12, 17, 31, .97));
+}
+.ask-repository-card form { display: grid; gap: 10px; }
+.ask-repository-card label { color: #dce1f0; font-size: 11px; font-weight: 600; }
+.ask-repository-card textarea {
+  width: 100%; min-height: 76px; resize: vertical; box-sizing: border-box;
+  padding: 12px; border: 1px solid rgba(150, 164, 216, .2); border-radius: 7px;
+  outline: none; background: rgba(5, 9, 18, .72); color: #e6eaf7; font: 11px/1.6 var(--sans);
+}
+.ask-repository-card textarea:focus { border-color: #8798f2; box-shadow: 0 0 0 3px rgba(117, 132, 230, .12); }
+.ask-repository-card button:disabled { opacity: .45; cursor: not-allowed; }
+.ask-repository-status, .ask-answer-meta { color: #8994b1; font-size: 9px; line-height: 1.7; }
+.ask-repository-status.is-loading { color: #aeb8ed; }
+.ask-repository-status.is-success { color: #82dcb2; }
+.ask-repository-status.is-error { color: #ff9b9b; }
+.ask-repository-answer { margin-top: 14px; padding: 15px; border: 1px solid rgba(148, 163, 209, .13); border-radius: 8px; background: rgba(5, 9, 18, .5); }
+.ask-answer-text { margin: 0; color: #d1d9ee; font-size: 10px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ask-repository-answer h4 { margin: 14px 0 7px; color: #cbd4eb; font-size: 10px; }
+.ask-citation-list { display: grid; gap: 7px; margin: 0; padding-left: 17px; }
+.ask-citation-list a { color: #aeb8ed; font-size: 9px; overflow-wrap: anywhere; }
+.ask-answer-meta { margin: 12px 0 0; }
+@media (max-width: 600px) { .ask-repository-card { padding: 17px; } }
+
