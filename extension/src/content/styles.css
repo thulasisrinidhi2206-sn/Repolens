@@ -763,3 +763,32 @@ body.repolens-modal-open {
 @keyframes repolens-spin {
   to { transform: rotate(360deg); }
 }
+
+
+
+/* Ask Your Repository */
+.repolens-ask-repository {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 209, .2);
+  border-radius: 10px;
+  background: rgba(8, 13, 26, .65);
+}
+.repolens-ask-hint, .repolens-ask-status {
+  color: #9aa6c2;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.repolens-ask-label { display: block; margin: 10px 0 6px; color: #dce3f5; font-size: 12px; }
+.repolens-ask-repository textarea {
+  display: block; width: 100%; box-sizing: border-box; resize: vertical; min-height: 66px;
+  padding: 10px; border: 1px solid rgba(148, 163, 209, .25); border-radius: 7px;
+  background: #0b1120; color: #e6eaf7; font: inherit;
+}
+.repolens-ask-repository textarea:focus { outline: 2px solid rgba(135, 152, 242, .5); }
+.repolens-ask-repository button { margin-top: 10px; }
+.repolens-ask-repository button:disabled { opacity: .55; cursor: wait; }
+.repolens-ask-answer { margin-top: 12px; color: #d1d9ee; font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.repolens-ask-citations { display: grid; gap: 6px; margin-top: 12px; }
+.repolens-ask-citations a { color: #aeb8ed; font-size: 11px; overflow-wrap: anywhere; }
+
