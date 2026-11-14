@@ -69,3 +69,10 @@ export const apiRateLimiter = createRateLimiter({
   maxRequests: 60,
   message: 'API rate limit exceeded. Please wait a moment before sending more repository requests.',
 });
+
+/** Lower request budget for repository Q&A because it reads source files and may call an AI provider. */
+export const askRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 8,
+  message: 'Repository Q&A limit reached. Please wait a minute before asking more questions.',
+});
