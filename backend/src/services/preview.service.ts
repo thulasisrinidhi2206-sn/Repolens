@@ -205,7 +205,17 @@ export class PreviewService {
 
       if (isDirectStaticPreview) {
         // No repository code is executed on the backend; files are served as sandboxed iframe content.
-        previewManagerService.setWorkspacePath(previewId, workspacePath);
+        let staticRoot = workspacePath;
+        for (const candidate of ['public', 'src', 'dist']) {
+          try {
+            await fs.access(path.join(workspacePath, candidate, 'index.html'));
+            staticRoot = path.join(workspacePath, candidate);
+            break;
+          } catch {
+            // Root index.html is preferred; try the next supported nested entry.
+          }
+        }
+        previewManagerService.setWorkspacePath(previewId, staticRoot);
         previewManagerService.appendLog(previewId, 'Static files are ready and will be served without Docker.');
       } else {
         const containerOptions = handler.getContainerOptions(previewContext);
