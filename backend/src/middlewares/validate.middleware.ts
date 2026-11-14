@@ -24,3 +24,19 @@ export function validateAnalyzeRequest(
  */
 export const validatePreviewRequest = validateAnalyzeRequest;
 
+
+/**
+ * Validate a repository question request before any GitHub API calls.
+ */
+export function validateAskRequest(req: Request, res: Response, next: NextFunction): void {
+  const { repositoryUrl, question } = req.body || {};
+  if (typeof repositoryUrl !== 'string' || repositoryUrl.trim().length === 0) {
+    sendError(res, 'Field "repositoryUrl" is required and must be a non-empty string.', 400);
+    return;
+  }
+  if (typeof question !== 'string' || question.trim().length < 5 || question.trim().length > 500) {
+    sendError(res, 'Field "question" is required and must contain between 5 and 500 characters.', 400);
+    return;
+  }
+  next();
+}
