@@ -143,6 +143,20 @@
             <p class="analyzer-status" id="analyzer-status" role="status" aria-live="polite"></p>
           </form>
           <div class="analysis-results" id="analysis-results" aria-live="polite" hidden></div>
+          <section class="ask-repository-card" id="ask-repository-card" aria-labelledby="ask-repository-title">
+            <div class="result-panel-heading">
+              <span class="result-panel-kicker">REPOLENS AI ASSISTANT</span>
+              <h3 id="ask-repository-title">Ask Your Repository</h3>
+              <p>Ask questions about the codebase and get answers with links to the source files used as evidence.</p>
+            </div>
+            <form id="ask-repository-form">
+              <label for="ask-repository-question">Your question</label>
+              <textarea id="ask-repository-question" rows="3" minlength="5" maxlength="500" placeholder="Where is authentication handled? Which file defines the API routes?" required></textarea>
+              <button class="button button-primary" id="ask-repository-button" type="submit" disabled>Ask RepoLens</button>
+            </form>
+            <p class="ask-repository-status" id="ask-repository-status" role="status" aria-live="polite">Analyze a repository first to start asking questions.</p>
+            <div class="ask-repository-answer" id="ask-repository-answer" hidden></div>
+          </section>
         </div>
       </section>
 
